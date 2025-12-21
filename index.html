@@ -1,285 +1,78 @@
-<!doctype html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
-        <title>Webgis Clockboard Zone Evan - Pro Dashboard</title>
-        
-        <link rel="stylesheet" href="css/leaflet.css">
-        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
-        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
-        <link rel="stylesheet" href="css/qgis2web.css">
-        <link rel="stylesheet" href="css/fontawesome-all.min.css">
-        <link rel="stylesheet" href="css/leaflet.photon.css">
-        <link rel="stylesheet" href="css/leaflet-measure.css">
+<style>
+    .action-button {
+        width: 100%;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    .btn-print { background: #3699ff; color: white; border: none; }
+    .btn-print:hover { background: #187de4; }
+    .btn-download { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+    .btn-download:hover { background: rgba(255,255,255,0.2); }
+</style>
 
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<aside id="sidebar">
+    <div class="sidebar-header">
+        <h4>CLOCKBOARD ZONE</h4>
+        <p class="small text-muted mb-0">WebGIS Analysis Surakarta</p>
+    </div>
+    
+    <div class="sidebar-content">
+        <div class="legend-panel">
+            <span class="legend-title"><i class="fas fa-layer-group me-2"></i>Legenda Peta</span>
+            <div id="sidebar-legend-content"></div>
+        </div>
 
-        <style>
-            :root {
-                --sidebar-width: 350px;
-                --primary-dark: #1e1e2d;
-                --accent-color: #3699ff;
-            }
-
-            body, html { 
-                height: 100%; margin: 0; padding: 0; 
-                font-family: 'Inter', sans-serif; 
-                background: #f4f6f9;
-                overflow: hidden;
-            }
-
-            /* Dashboard Layout */
-            #dashboard-wrapper {
-                display: flex;
-                height: 100vh;
-                width: 100vw;
-            }
-
-            /* Sidebar Styling */
-            #sidebar {
-                width: var(--sidebar-width);
-                background: var(--primary-dark);
-                color: #ffffff;
-                display: flex;
-                flex-direction: column;
-                box-shadow: 10px 0 15px rgba(0,0,0,0.1);
-                z-index: 9999; /* Di atas map */
-            }
-
-            .sidebar-header {
-                padding: 25px;
-                background: rgba(0,0,0,0.2);
-                border-bottom: 1px solid rgba(255,255,255,0.1);
-            }
-
-            .sidebar-header h4 {
-                font-size: 1.1rem;
-                font-weight: 600;
-                margin: 0;
-                letter-spacing: 0.5px;
-                color: var(--accent-color);
-            }
-
-            .sidebar-content {
-                flex: 1;
-                overflow-y: auto;
-                padding: 20px;
-            }
-
-            /* Custom Legend Container */
-            .legend-panel {
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 12px;
-                padding: 15px;
-                margin-top: 20px;
-                border: 1px solid rgba(255,255,255,0.1);
-            }
-
-            .legend-title {
-                font-size: 0.85rem;
-                font-weight: 600;
-                color: #a2a5b9;
-                text-transform: uppercase;
-                margin-bottom: 15px;
-                display: block;
-            }
-
-            /* Map Area */
-            #map {
-                flex: 1;
-                height: 100%;
-                z-index: 1;
-            }
-
-            /* Overriding default qgis2web elements for Pro look */
-            .leaflet-control-zoom { border: none !important; }
-            .leaflet-bar a { background-color: #fff !important; color: #333 !important; border-bottom: 1px solid #eee !important; }
+        <div class="mt-4">
+            <span class="legend-title text-info"><i class="fas fa-tools me-2"></i>Tools & Export</span>
+            <button class="action-button btn-print" onclick="window.print();">
+                <i class="fas fa-print"></i> Print Map (PDF)
+            </button>
             
-            /* Legend Table Styling */
-            #sidebar table { width: 100%; color: #fff; font-size: 0.85rem; }
-            #sidebar td { padding: 4px 0; vertical-align: middle; }
-            #sidebar img { margin-right: 10px; border-radius: 2px; }
-
-            /* Footer */
-            .sidebar-footer {
-                padding: 15px;
-                background: rgba(0,0,0,0.3);
-                font-size: 0.75rem;
-                color: #6c7293;
-                text-align: center;
-            }
-        </style>
-    </head>
-    <body>
-
-    <div id="dashboard-wrapper">
-        <aside id="sidebar">
-            <div class="sidebar-header">
-                <h4>CLOCKBOARD ZONE</h4>
-                <p class="small text-muted mb-0">WebGIS Analysis Surakarta</p>
+            <div class="dropdown">
+                <button class="action-button btn-download dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-download"></i> Download Data
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark w-100">
+                    <li><a class="dropdown-item small" href="#" onclick="downloadData(json_MultiCriteriaEvaluationSurakarta_3, 'MCE_Surakarta.json')">Data MCE (GeoJSON)</a></li>
+                    <li><a class="dropdown-item small" href="#" onclick="downloadData(json_AnalisisClockboardZoneSurakarta_4, 'Clockboard_Zone.json')">Data Clockboard (GeoJSON)</a></li>
+                </ul>
             </div>
-            
-            <div class="sidebar-content">
-                <div class="mb-4">
-                    <p class="small text-light" style="opacity: 0.7;">
-                        Platform ini menyajikan hasil analisis spasial Multi-Criteria Evaluation (MCE) dan zonasi wilayah di Kota Surakarta.
-                    </p>
-                </div>
-
-                <hr style="border-color: rgba(255,255,255,0.1);">
-
-                <div class="legend-panel">
-                    <span class="legend-title"><i class="fas fa-layer-group me-2"></i>Legenda Peta</span>
-                    <div id="sidebar-legend-content">
-                        </div>
-                </div>
-
-                <div class="mt-4 p-3 rounded" style="background: rgba(54, 153, 255, 0.1); border: 1px solid rgba(54, 153, 255, 0.2);">
-                    <h6 class="small mb-1 text-info">Insight Perencanaan</h6>
-                    <p class="small mb-0" style="font-size: 0.75rem;">Gunakan alat pengukur di pojok kiri atas untuk menghitung jarak area potensial.</p>
-                </div>
-            </div>
-
-            <div class="sidebar-footer">
-                Developed by Evan &copy; 2025 <br> Perencanaan Wilayah & Kota
-            </div>
-        </aside>
-
-        <div id="map"></div>
+        </div>
     </div>
 
-    <script src="js/qgis2web_expressions.js"></script>
-    <script src="js/leaflet.js"></script>
-    <script src="js/L.Control.Layers.Tree.min.js"></script>
-    <script src="js/L.Control.Locate.min.js"></script>
-    <script src="js/leaflet.rotatedMarker.js"></script>
-    <script src="js/leaflet.pattern.js"></script>
-    <script src="js/leaflet-hash.js"></script>
-    <script src="js/Autolinker.min.js"></script>
-    <script src="js/rbush.min.js"></script>
-    <script src="js/labelgun.min.js"></script>
-    <script src="js/labels.js"></script>
-    <script src="js/leaflet.photon.js"></script>
-    <script src="js/leaflet-measure.js"></script>
-    
-    <script src="data/MultiCriteriaEvaluationSurakarta_3.js"></script>
-    <script src="data/AnalisisClockboardZoneSurakarta_4.js"></script>
-    <script src="data/BatasAdminSurakarta_5.js"></script>
+    <div class="sidebar-footer">
+        Developed by Evan &copy; 2025
+    </div>
+</aside>
 
-    <script>
-        // ... (Semua variabel asli Anda tetap di sini) ...
-        var highlightLayer;
-        function highlightFeature(e) {
-            highlightLayer = e.target;
-            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
-              highlightLayer.setStyle({ color: 'rgba(255, 255, 0, 1.00)' });
-            } else {
-              highlightLayer.setStyle({ fillColor: 'rgba(255, 255, 0, 1.00)', fillOpacity: 1 });
-            }
-            highlightLayer.openPopup();
+<script>
+    // Fungsi untuk Download Data Vektor ke format GeoJSON
+    function downloadData(jsonData, filename) {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(jsonData));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", filename);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    }
+
+    // Penambahan CSS khusus Print agar Sidebar hilang saat mencetak
+    var stylePrint = document.createElement('style');
+    stylePrint.innerHTML = `
+        @media print {
+            #sidebar { display: none !important; }
+            #map { width: 100vw !important; height: 100vh !important; position: absolute; left: 0; top: 0; }
+            .leaflet-control-zoom, .leaflet-control-layers, .leaflet-control-measure { display: none !important; }
         }
-
-        var map = L.map('map', {
-            zoomControl:false, maxZoom:28, minZoom:1
-        }).fitBounds([[-7.59706,110.76663],[-7.52019,110.87154]]);
-
-        // Logic Original qgis2web
-        var hash = new L.Hash(map);
-        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
-
-        function removeEmptyRowsFromPopupContent(content, feature) {
-            var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            var rows = tempDiv.querySelectorAll('tr');
-            for (var i = 0; i < rows.length; i++) {
-                var td = rows[i].querySelector('td.visible-with-data');
-                var key = td ? td.id : '';
-                if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
-                    rows[i].parentNode.removeChild(rows[i]);
-                }
-            }
-            return tempDiv.innerHTML;
-        }
-
-        // Layer-layer Asli (Google Satellite, OSM, MCE, dll)
-        map.createPane('pane_GoogleSatellite_0');
-        map.getPane('pane_GoogleSatellite_0').style.zIndex = 400;
-        var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            pane: 'pane_GoogleSatellite_0', opacity: 1.0, minZoom: 1, maxZoom: 28,
-        });
-        map.addLayer(layer_GoogleSatellite_0);
-
-        // -- (Integrasi Data Vektor - Sesuai Kode Asli Anda) --
-        // Inisialisasi MCE Layer
-        map.createPane('pane_MultiCriteriaEvaluationSurakarta_3');
-        map.getPane('pane_MultiCriteriaEvaluationSurakarta_3').style.zIndex = 403;
-        var layer_MultiCriteriaEvaluationSurakarta_3 = new L.geoJson(json_MultiCriteriaEvaluationSurakarta_3, {
-            pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-            style: style_MultiCriteriaEvaluationSurakarta_3_0,
-            onEachFeature: pop_MultiCriteriaEvaluationSurakarta_3,
-        });
-
-        // Inisialisasi Analisis Layer
-        map.createPane('pane_AnalisisClockboardZoneSurakarta_4');
-        map.getPane('pane_AnalisisClockboardZoneSurakarta_4').style.zIndex = 404;
-        var layer_AnalisisClockboardZoneSurakarta_4 = new L.geoJson(json_AnalisisClockboardZoneSurakarta_4, {
-            pane: 'pane_AnalisisClockboardZoneSurakarta_4',
-            style: style_AnalisisClockboardZoneSurakarta_4_0,
-            onEachFeature: pop_AnalisisClockboardZoneSurakarta_4,
-        });
-        map.addLayer(layer_AnalisisClockboardZoneSurakarta_4);
-
-        // Batas Admin
-        map.createPane('pane_BatasAdminSurakarta_5');
-        map.getPane('pane_BatasAdminSurakarta_5').style.zIndex = 405;
-        var layer_BatasAdminSurakarta_5 = new L.geoJson(json_BatasAdminSurakarta_5, {
-            pane: 'pane_BatasAdminSurakarta_5',
-            style: style_BatasAdminSurakarta_5_0,
-        });
-
-        // MODIFIKASI: Pindahkan Label Legenda ke Sidebar
-        // Kami mengambil label dari array overlaysTree asli Anda
-        var overlaysTree = [
-            {label: 'Batas Admin Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Banjarsari0.png" /></td><td>Banjarsari</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Jebres1.png" /></td><td>Jebres</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Laweyan2.png" /></td><td>Laweyan</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_PasarKliwon3.png" /></td><td>Pasar Kliwon</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Serengan4.png" /></td><td>Serengan</td></tr></table>', layer: layer_BatasAdminSurakarta_5},
-            {label: 'Analisis Clockboard Zone Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring10.png" /></td><td>Ring 1</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring21.png" /></td><td>Ring 2</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring32.png" /></td><td>Ring 3</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring43.png" /></td><td>Ring 4</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring54.png" /></td><td>Ring 5</td></tr></table>', layer: layer_AnalisisClockboardZoneSurakarta_4},
-            {label: '<b>Multi-Criteria Evaluation Surakarta</b><br /><table><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatTinggi0.png" /></td><td>Sangat Tinggi</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Tinggi1.png" /></td><td>Tinggi </td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Sedang2.png" /></td><td>Sedang</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Rendah3.png" /></td><td>Rendah</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatRendah4.png" /></td><td>Sangat Rendah</td></tr></table>', layer: layer_MultiCriteriaEvaluationSurakarta_3}
-        ];
-
-        // Inject legend to Sidebar
-        var legendHtml = "";
-        overlaysTree.forEach(function(item) {
-            legendHtml += "<div class='mb-4'>" + item.label + "</div>";
-        });
-        document.getElementById('sidebar-legend-content').innerHTML = legendHtml;
-
-        // Leaflet Controls (Standard position adjusted)
-        L.control.zoom({ position: 'topright' }).addTo(map);
-        L.control.locate({ position: 'topright' }).addTo(map);
-        
-        // Measure Control
-        var measureControl = new L.Control.Measure({
-            position: 'topright',
-            primaryLengthUnit: 'meters',
-            secondaryLengthUnit: 'kilometers'
-        });
-        measureControl.addTo(map);
-
-        // Layer Control Tree (Default qgis2web)
-        var lay = L.control.layers.tree(null, overlaysTree, { collapsed: true });
-        lay.addTo(map);
-
-        // -- Masukkan semua fungsi style_... dan pop_... asli Anda di sini --
-        // (Saya ringkas, pastikan fungsi pop_... dan style_... yang ada di file asli Anda tetap ada di bawah sini)
-        
-        function style_MultiCriteriaEvaluationSurakarta_3_0(feature) { /* Copy asli anda */ }
-        function style_AnalisisClockboardZoneSurakarta_4_0(feature) { /* Copy asli anda */ }
-        function style_BatasAdminSurakarta_5_0(feature) { /* Copy asli anda */ }
-        function pop_MultiCriteriaEvaluationSurakarta_3(feature, layer) { /* Copy asli anda */ }
-        function pop_AnalisisClockboardZoneSurakarta_4(feature, layer) { /* Copy asli anda */ }
-
-    </script>
-    </body>
-</html>
+    `;
+    document.head.appendChild(stylePrint);
+</script>
