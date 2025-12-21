@@ -4,8 +4,8 @@
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
-        <title>WebGIS Perencanaan Wilayah & Kota - Surakarta</title>
-        
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
         <link rel="stylesheet" href="css/leaflet.css">
         <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
         <link rel="stylesheet" href="css/L.Control.Locate.min.css">
@@ -13,134 +13,179 @@
         <link rel="stylesheet" href="css/fontawesome-all.min.css">
         <link rel="stylesheet" href="css/leaflet.photon.css">
         <link rel="stylesheet" href="css/leaflet-measure.css">
-        
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
         <style>
-            body, html { height: 100%; margin: 0; background: #f8f9fa; overflow: hidden; }
-            #main-container { display: flex; height: 100vh; width: 100vw; }
+            /* Reset & Dasar */
+            html, body { 
+                width: 100%; 
+                height: 100%; 
+                padding: 0; 
+                margin: 0; 
+                font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+                overflow: hidden; 
+            }
             
-            /* Sidebar Styling */
-            #sidebar {
-                width: 350px;
-                background: #2c3e50;
-                color: white;
+            /* Layout Dashboard */
+            #main-container { 
+                display: flex; 
+                width: 100vw; 
+                height: 100vh; 
+            }
+            
+            /* Sidebar Modern */
+            #sidebar { 
+                width: 380px; 
+                height: 100%; 
+                background: #ffffff; 
+                border-right: 1px solid #d1d1d1;
                 display: flex;
                 flex-direction: column;
-                box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+                transition: all 0.3s ease;
+                z-index: 1000;
+                overflow-y: auto;
+                box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            }
+            
+            #sidebar.collapsed { margin-left: -380px; }
+            
+            /* Area Peta */
+            #map { 
+                flex-grow: 1; 
+                height: 100%; 
+                position: relative; 
+                background: #f0f0f0;
+            }
+
+            /* Header Sidebar */
+            .sidebar-header { 
+                padding: 25px 20px; 
+                background: #2c3e50; 
+                color: white; 
+            }
+            .sidebar-header h2 { 
+                margin: 0; 
+                font-size: 18px; 
+                font-weight: 600;
+                text-transform: uppercase; 
+                letter-spacing: 1px; 
+            }
+            .sidebar-header small { opacity: 0.8; font-size: 11px; }
+
+            /* Konten Sidebar */
+            .content-section { 
+                padding: 20px; 
+                border-bottom: 1px solid #eee; 
+            }
+            .content-section h3 { 
+                font-size: 13px; 
+                font-weight: 700;
+                color: #34495e; 
+                margin-top: 0;
+                margin-bottom: 15px; 
+                border-left: 4px solid #3498db; 
+                padding-left: 10px; 
+                text-transform: uppercase;
+            }
+
+            /* Override Leaflet Tree Control inside Sidebar */
+            #layer-control-container .leaflet-control-layers-tree { 
+                position: static !important; 
+                box-shadow: none !important; 
+                background: transparent !important; 
+                border: none !important; 
+                width: 100% !important;
+                font-size: 13px;
+            }
+            
+            /* Tombol Toggle Sidebar */
+            #sidebar-toggle {
+                position: absolute;
+                top: 20px;
+                left: 20px;
                 z-index: 1001;
-            }
-            .sidebar-header { padding: 20px; background: #1a252f; border-bottom: 3px solid #3498db; }
-            .sidebar-content { flex: 1; overflow-y: auto; padding: 20px; }
-            
-            /* Map Styling */
-            #map { flex: 1; position: relative; }
-            
-            /* Overriding Leaflet Controls to match Pro UI */
-            .leaflet-control-layers-toggle { background-color: #fff; }
-            .info-panel {
-                background: rgba(255,255,255,0.9);
-                padding: 10px;
-                border-radius: 5px;
-                font-size: 12px;
-                border: 1px solid #ccc;
-            }
-            
-            /* Legend Standard PWK */
-            .custom-legend {
-                background: white;
-                padding: 10px;
+                background: #2c3e50;
+                color: white;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
                 border-radius: 4px;
-                color: #333;
-                margin-top: 15px;
-                font-size: 0.85rem;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                cursor: pointer;
             }
-            .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
-            .legend-color { width: 18px; height: 18px; border-radius: 2px; margin-right: 10px; }
+            #sidebar-toggle:hover { background: #34495e; }
+
+            /* Legenda Table Styling */
+            .leaflet-control-layers-tree table { width: 100%; margin-top: 5px; }
+            .leaflet-control-layers-tree td { padding: 2px 0; }
         </style>
+        <title>Webgis Clockboard Zone Evan</title>
     </head>
     <body>
+        <div id="main-container">
+            <div id="sidebar">
+                <div class="sidebar-header">
+                    <h2>Webgis Clockboard</h2>
+                    <small>Sistem Analisis Spasial Perencanaan Wilayah</small>
+                </div>
+                
+                <div class="content-section">
+                    <h3>Layer & Legenda</h3>
+                    <div id="layer-control-container">
+                        </div>
+                </div>
 
-    <div id="main-container">
-        <aside id="sidebar">
-            <div class="sidebar-header">
-                <h5 class="mb-0">CLOCKBOARD ZONE</h5>
-                <small class="text-info">Analisis Perencanaan Kota Surakarta</small>
+                <div class="content-section">
+                    <h3>Metadata</h3>
+                    <p style="font-size: 12px; color: #666; line-height: 1.6;">
+                        Proyek ini mencakup analisis <strong>Multi-Criteria Evaluation (MCE)</strong> dan <strong>Clockboard Zone</strong> di wilayah Surakarta untuk mendukung pengambilan keputusan berbasis data spasial.
+                    </p>
+                </div>
             </div>
-            
-            <div class="sidebar-content">
-                <section class="mb-4">
-                    <h6><i class="fas fa-info-circle me-2"></i>Deskripsi Proyek</h6>
-                    <p class="small text-light-50">Visualisasi Multi-Criteria Evaluation (MCE) dan Analisis Zonasi untuk kebutuhan perencanaan berbasis kebijakan di Surakarta.</p>
-                </section>
 
-                <hr>
-
-                <section class="mb-4">
-                    <h6><i class="fas fa-map me-2"></i>Legenda Tematik</h6>
-                    
-                    <div class="custom-legend shadow-sm">
-                        <strong>Kesesuaian Lahan (MCE)</strong>
-                        <div class="legend-item mt-2"><div class="legend-color" style="background:#2b83ba"></div> Sangat Tinggi</div>
-                        <div class="legend-item"><div class="legend-color" style="background:#abdeb4"></div> Tinggi</div>
-                        <div class="legend-item"><div class="legend-color" style="background:#ffffbf"></div> Sedang</div>
-                        <div class="legend-item"><div class="legend-color" style="background:#fdae61"></div> Rendah</div>
-                        <div class="legend-item"><div class="legend-color" style="background:#d7191c"></div> Sangat Rendah</div>
-                    </div>
-                </section>
-
-                <section>
-                    <h6><i class="fas fa-layer-group me-2"></i>Statistik Wilayah</h6>
-                    <div class="alert alert-info py-2 small">
-                        Pilih area pada peta untuk melihat detail atribut metadata.
-                    </div>
-                </section>
+            <div id="map">
+                <div id="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
             </div>
-            
-            <div class="p-3 bg-dark text-center">
-                <small>© 2025 Evan - Perencanaan Wilayah & Kota</small>
-            </div>
-        </aside>
+        </div>
 
-        <main id="map"></main>
-    </div>
-
-    <script src="js/qgis2web_expressions.js"></script>
-    <script src="js/leaflet.js"></script>
-    <script src="js/L.Control.Layers.Tree.min.js"></script>
-    <script src="js/L.Control.Locate.min.js"></script>
-    <script src="js/leaflet.rotatedMarker.js"></script>
-    <script src="js/leaflet.pattern.js"></script>
-    <script src="js/leaflet-hash.js"></script>
-    <script src="js/Autolinker.min.js"></script>
-    <script src="js/rbush.min.js"></script>
-    <script src="js/labelgun.min.js"></script>
-    <script src="js/labels.js"></script>
-    <script src="js/leaflet.photon.js"></script>
-    <script src="js/leaflet-measure.js"></script>
-    
-    <script src="data/MultiCriteriaEvaluationSurakarta_3.js"></script>
-    <script src="data/AnalisisClockboardZoneSurakarta_4.js"></script>
-    <script src="data/BatasAdminSurakarta_5.js"></script>
-
-    <script>
-        // Copy seluruh logika asli qgis2web Anda ke sini dengan sedikit modifikasi UI
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/L.Control.Locate.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet.photon.js"></script>
+        <script src="js/leaflet-measure.js"></script>
+        <script src="data/MultiCriteriaEvaluationSurakarta_3.js"></script>
+        <script src="data/AnalisisClockboardZoneSurakarta_4.js"></script>
+        <script src="data/BatasAdminSurakarta_5.js"></script>
+        
+        <script>
         var highlightLayer;
         function highlightFeature(e) {
             highlightLayer = e.target;
             if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
               highlightLayer.setStyle({ color: 'rgba(255, 255, 0, 1.00)' });
             } else {
-              highlightLayer.setStyle({ fillColor: 'rgba(255, 255, 0, 1.00)', fillOpacity: 0.6 });
+              highlightLayer.setStyle({ fillColor: 'rgba(255, 255, 0, 1.00)', fillOpacity: 1 });
             }
             highlightLayer.openPopup();
         }
 
         var map = L.map('map', {
             zoomControl:false, maxZoom:28, minZoom:1
-        }).fitBounds([[-7.59706, 110.76663],[-7.52019, 110.87154]]);
-
+        }).fitBounds([[-7.597069084198594,110.76663390539312],[-7.520191120726702,110.87154808329655]]);
+        
         var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('Professional WebGIS Dashboard');
+        
         var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
 
         function removeEmptyRowsFromPopupContent(content, feature) {
@@ -157,83 +202,93 @@
             return tempDiv.innerHTML;
         }
 
-        // Base Layers
-        map.createPane('pane_GoogleSatellite_0');
-        map.getPane('pane_GoogleSatellite_0').style.zIndex = 400;
-        var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            pane: 'pane_GoogleSatellite_0',
-            opacity: 1.0,
-            minZoom: 1,
-            maxZoom: 28,
-        }).addTo(map);
-
-        // -- LAYER 3: Multi-Criteria Evaluation --
-        function style_MCE(feature) {
-            switch(String(feature.properties['DN'])) {
-                case '1': return { pane: 'pane_MultiCriteriaEvaluationSurakarta_3', stroke: false, fill: true, fillOpacity: 1, fillColor: 'rgba(215,25,28,1.0)', interactive: true }; break;
-                case '2': return { pane: 'pane_MultiCriteriaEvaluationSurakarta_3', stroke: false, fill: true, fillOpacity: 1, fillColor: 'rgba(253,174,97,1.0)', interactive: true }; break;
-                case '3': return { pane: 'pane_MultiCriteriaEvaluationSurakarta_3', stroke: false, fill: true, fillOpacity: 1, fillColor: 'rgba(255,255,191,1.0)', interactive: true }; break;
-                case '4': return { pane: 'pane_MultiCriteriaEvaluationSurakarta_3', stroke: false, fill: true, fillOpacity: 1, fillColor: 'rgba(171,221,164,1.0)', interactive: true }; break;
-                case '5': return { pane: 'pane_MultiCriteriaEvaluationSurakarta_3', stroke: false, fill: true, fillOpacity: 1, fillColor: 'rgba(43,131,186,1.0)', interactive: true }; break;
+        function addClassToPopupIfMedia(content, popup) {
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = content;
+            var imgTd = tempDiv.querySelector('td img');
+            if (imgTd) {
+                popup._contentNode.classList.add('media');
+                setTimeout(function() { popup.update(); }, 10);
             }
         }
-        map.createPane('pane_MultiCriteriaEvaluationSurakarta_3');
-        map.getPane('pane_MultiCriteriaEvaluationSurakarta_3').style.zIndex = 403;
-        var layer_MultiCriteriaEvaluationSurakarta_3 = new L.geoJson(json_MultiCriteriaEvaluationSurakarta_3, {
-            pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-            style: style_MCE,
-            onEachFeature: function(feature, layer) {
-                var popupContent = '<strong>Nilai DN:</strong> ' + feature.properties['DN'];
-                layer.bindPopup(popupContent);
-                layer.on({ mouseover: highlightFeature });
-            }
-        }).addTo(map);
 
-        // -- LAYER 5: Batas Admin --
-        function style_BatasAdmin(feature) {
-            return {
-                pane: 'pane_BatasAdminSurakarta_5',
-                opacity: 1,
-                color: 'rgba(255,255,255,1.0)',
-                dashArray: '5,5',
-                lineJoin: 'miter',
-                weight: 1.0,
-                fill: true,
-                fillOpacity: 0.4,
-                fillColor: 'rgba(120,120,120,1.0)'
-            };
-        }
-        map.createPane('pane_BatasAdminSurakarta_5');
-        map.getPane('pane_BatasAdminSurakarta_5').style.zIndex = 405;
-        var layer_BatasAdminSurakarta_5 = new L.geoJson(json_BatasAdminSurakarta_5, {
-            pane: 'pane_BatasAdminSurakarta_5',
-            style: style_BatasAdmin,
-            onEachFeature: function(feature, layer) {
-                layer.bindTooltip(feature.properties['WADMKC'], {permanent: false, direction: 'center'});
-            }
-        }).addTo(map);
-
-        // Leaflet Controls
-        L.control.zoom({ position: 'topright' }).addTo(map);
-        L.control.locate({ position: 'topright' }).addTo(map);
-        
+        // Controls
+        var zoomControl = L.control.zoom({ position: 'topright' }).addTo(map);
+        L.control.locate({locateOptions: {maxZoom: 19}}).addTo(map);
         var measureControl = new L.Control.Measure({
             position: 'topright',
             primaryLengthUnit: 'meters',
-            secondaryLengthUnit: 'kilometers'
-        }).addTo(map);
+            primaryAreaUnit: 'sqmeters'
+        });
+        measureControl.addTo(map);
 
-        // Layer Tree
-        var baseTree = [ { label: "Google Satellite", layer: layer_GoogleSatellite_0 } ];
+        // Base Layers
+        map.createPane('pane_GoogleSatellite_0');
+        var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleSatellite_0', opacity: 1.0, minZoom: 1, maxZoom: 28
+        });
+        map.addLayer(layer_GoogleSatellite_0);
+
+        map.createPane('pane_DarkMatterretina_2');
+        var layer_DarkMatterretina_2 = L.tileLayer('https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', {
+            pane: 'pane_DarkMatterretina_2', opacity: 1.0, minZoom: 1, maxZoom: 28
+        });
+
+        // Overlay Layers (Simplified for readability)
+        function pop_MCE(feature, layer) {
+            var popupContent = '<table><tr><td colspan="2"><strong>DN: </strong>' + (feature.properties['DN'] || '') + '</td></tr></table>';
+            layer.bindPopup(popupContent, {maxHeight: 400});
+        }
+
+        map.createPane('pane_MultiCriteriaEvaluationSurakarta_3');
+        var layer_MultiCriteriaEvaluationSurakarta_3 = new L.geoJson(json_MultiCriteriaEvaluationSurakarta_3, {
+            pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
+            onEachFeature: pop_MCE,
+            style: function(f) {
+                var colors = {'1':'#d7191c','2':'#fdae61','3':'#ffffbf','4':'#abdda4','5':'#2b83ba'};
+                return {fillColor: colors[f.properties['DN']], fillOpacity: 0.8, stroke: false};
+            }
+        });
+
+        map.createPane('pane_AnalisisClockboardZoneSurakarta_4');
+        var layer_AnalisisClockboardZoneSurakarta_4 = new L.geoJson(json_AnalisisClockboardZoneSurakarta_4, {
+            pane: 'pane_AnalisisClockboardZoneSurakarta_4',
+            style: {color: 'black', weight: 1, fillOpacity: 0.5, fillColor: '#e67e22'}
+        });
+        map.addLayer(layer_AnalisisClockboardZoneSurakarta_4);
+
+        // Layer Tree Configuration
         var overlaysTree = [
-            { label: "Batas Administrasi", layer: layer_BatasAdminSurakarta_5 },
-            { label: "Multi Criteria Evaluation", layer: layer_MultiCriteriaEvaluationSurakarta_3 }
+            {label: 'Batas Admin Surakarta', layer: new L.geoJson(json_BatasAdminSurakarta_5)},
+            {label: 'Analisis Clockboard Zone', layer: layer_AnalisisClockboardZoneSurakarta_4},
+            {label: 'Multi-Criteria Evaluation', layer: layer_MultiCriteriaEvaluationSurakarta_3},
+            {label: "Basemaps", children: [
+                {label: "Dark Matter", layer: layer_DarkMatterretina_2},
+                {label: "Google Satellite", layer: layer_GoogleSatellite_0}
+            ]}
         ];
-        
-        var lay = L.control.layers.tree(baseTree, overlaysTree, { collapsed: false });
+
+        var lay = L.control.layers.tree(null, overlaysTree, { collapsed: false });
         lay.addTo(map);
 
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        // --- CUSTOM SIDEBAR LOGIC ---
+        function toggleSidebar() {
+            var sb = document.getElementById('sidebar');
+            sb.classList.toggle('collapsed');
+            setTimeout(function() { map.invalidateSize(); }, 350);
+        }
+
+        // Pindahkan Kontrol Layer ke Sidebar
+        var layerTreeContainer = lay.getContainer();
+        document.getElementById('layer-control-container').appendChild(layerTreeContainer);
+        layerTreeContainer.classList.remove('leaflet-control'); // Hapus style default melayang
+
+        // Fitur Pencarian Photon
+        var photonControl = L.control.photon({
+            url: "https://nominatim.openstreetmap.org/search?format=geojson&addressdetails=1&",
+            position: 'topright'
+        }).addTo(map);
+
+        </script>
     </body>
 </html>
