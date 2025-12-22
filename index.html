@@ -19,231 +19,201 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
-        <style>
-            :root {
-                --sidebar-width: 350px;
-                --primary-dark: #1e1e2d;
-                --accent-color: #3699ff;
-            }
+       <style>
+    :root {
+        --sidebar-width: 360px;
+        --primary-dark: #1a1a27;
+        --secondary-dark: #24243e;
+        --accent-color: #00d2ff;
+        --text-muted: #a2a5b9;
+        --glass: rgba(255, 255, 255, 0.03);
+    }
 
-            html, body, #map {
-                width: 100%;
-                height: 100%;
-                padding: 0;
-                margin: 0;
-            }
+    body { font-family: 'Inter', sans-serif; background: #000; }
 
-            #dashboard-wrapper {
-                display: flex;
-                height: 100vh;
-                width: 100vw;
-            }
+    #dashboard-wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
-            /* Sidebar Styling */
-            #sidebar {
-                width: var(--sidebar-width);
-                background: var(--primary-dark);
-                color: #ffffff;
-                display: flex;
-                flex-direction: column;
-                box-shadow: 10px 0 15px rgba(0,0,0,0.1);
-                z-index: 9999;
-            }
+    /* Sidebar Enhancement */
+    #sidebar {
+        width: var(--sidebar-width);
+        background: var(--primary-dark);
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid rgba(255,255,255,0.05);
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
 
-            .sidebar-header {
-                padding: 25px;
-                background: rgba(0,0,0,0.2);
-                border-bottom: 1px solid rgba(255,255,255,0.1);
-            }
+    .sidebar-header {
+        padding: 30px 25px;
+        background: linear-gradient(to bottom, rgba(0,210,255,0.1), transparent);
+    }
 
-            .sidebar-header h4 {
-                font-size: 1.1rem;
-                font-weight: 600;
-                margin: 0;
-                color: var(--accent-color);
-            }
+    .sidebar-header h4 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: var(--accent-color);
+        text-transform: uppercase;
+    }
 
-            .sidebar-content {
-                flex: 1;
-                overflow-y: auto;
-                padding: 20px;
-            }
+    /* Scrollbar Styling */
+    .sidebar-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+    .sidebar-content::-webkit-scrollbar { width: 5px; }
+    .sidebar-content::-webkit-scrollbar-thumb { background: var(--secondary-dark); border-radius: 10px; }
 
-            /* Legend Panel Customization */
-            .legend-panel {
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 12px;
-                padding: 15px;
-                margin-top: 10px;
-                border: 1px solid rgba(255,255,255,0.1);
-            }
+    /* Professional Card Panels */
+    .legend-panel, .layer-toggle-panel {
+        background: var(--glass);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
 
-            .legend-title {
-                font-size: 0.85rem;
-                font-weight: 600;
-                color: #a2a5b9;
-                text-transform: uppercase;
-                margin-bottom: 15px;
-                display: block;
-            }
+    .legend-title, .layer-toggle-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--accent-color);
+        text-transform: uppercase;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
 
-            /* Fix Table Legend inside Sidebar */
-            #sidebar-legend-content table {
-                width: 100% !important;
-                margin-bottom: 20px;
-                color: #cbd5e0;
-                font-size: 0.85rem;
-            }
+    /* Legend Styling */
+    #sidebar-legend-content table {
+        width: 100% !important;
+        border-collapse: separate;
+        border-spacing: 0 8px;
+    }
 
-            #sidebar-legend-content td {
-                padding: 4px 0;
-                vertical-align: middle;
-            }
+    #sidebar-legend-content td {
+        font-size: 0.85rem;
+        color: #e1e1e6;
+    }
 
-            #sidebar-legend-content img {
-                width: 18px;
-                height: 18px;
-                margin-right: 12px;
-                border-radius: 2px;
-            }
+    #sidebar-legend-content img {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        margin-right: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
 
-            /* Layer Toggle Panel */
-            .layer-toggle-panel {
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 12px;
-                padding: 15px;
-                margin-top: 20px;
-                border: 1px solid rgba(255,255,255,0.1);
-            }
+    /* Custom Checkbox/Radio */
+    .layer-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: background 0.2s;
+        cursor: pointer;
+    }
+    .layer-item:hover { background: rgba(255,255,255,0.05); }
 
-            .layer-toggle-title {
-                font-size: 0.85rem;
-                font-weight: 600;
-                color: #a2a5b9;
-                text-transform: uppercase;
-                margin-bottom: 15px;
-                display: block;
-            }
+    .layer-item input { margin-right: 12px; accent-color: var(--accent-color); }
 
-            .layer-item {
-                display: flex;
-                align-items: center;
-                margin-bottom: 10px;
-                font-size: 0.85rem;
-                color: #cbd5e0;
-            }
+    .basemap-section h6, .overlay-section h6 {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin: 15px 0 10px 10px;
+    }
 
-            .layer-item input[type="checkbox"],
-            .layer-item input[type="radio"] {
-                margin-right: 10px;
-            }
+    #map { flex: 1; background: #111; }
 
-            .layer-item label {
-                cursor: pointer;
-                margin: 0;
-            }
-
-            .basemap-section,
-            .overlay-section {
-                margin-bottom: 20px;
-            }
-
-            .basemap-section h6,
-            .overlay-section h6 {
-                font-size: 0.9rem;
-                font-weight: 600;
-                color: #a2a5b9;
-                margin-bottom: 10px;
-                text-transform: uppercase;
-            }
-
-            #map {
-                flex: 1;
-                height: 100%;
-                z-index: 1;
-            }
-
-            .sidebar-footer {
-                padding: 15px;
-                background: rgba(0,0,0,0.3);
-                font-size: 0.75rem;
-                color: #6c7293;
-                text-align: center;
-            }
-        </style>
-    </head>
+    /* Map Controls UI */
+    .leaflet-control-zoom, .leaflet-control-measure, .leaflet-control-locate {
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+    }
+</style>
     <body>
 
-    <div id="dashboard-wrapper">
-        <aside id="sidebar">
-            <div class="sidebar-header">
-                <h4>WEBGIS EVAN CLOCKBOARD SURAKARTA</h4>
-                <p class="small text-muted mb-0">Analysis Surakarta 2025</p>
+<div id="dashboard-wrapper">
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <h4>SURAKARTA WEBGIS EVAN</h4>
+            <div class="d-flex align-items-center mt-2">
+                <span class="badge bg-primary me-2" style="font-size: 0.6rem;">EVAN DASHBOARD</span>
+                <p class="small text-muted mb-0" style="font-size: 0.7rem;">Clockboard Analysis 2025</p>
             </div>
+        </div>
+        
+        <div class="sidebar-content">
+            <div class="mb-4 p-3 rounded-4" style="background: linear-gradient(45deg, rgba(0,210,255,0.05), rgba(54,153,255,0.1)); border-left: 3px solid var(--accent-color);">
+                <p class="small text-light mb-0" style="line-height: 1.5; opacity: 0.9;">
+                    Visualisasi spasial <strong>Multi-Criteria Evaluation (MCE)</strong> dan zonasi strategis Clockboard Kota Surakarta.
+                </p>
+            </div>
+
             
-            <div class="sidebar-content">
-                <div class="mb-3">
-                    <p class="small text-light" style="opacity: 0.7;">
-                        Hasil analisis spasial Multi-Criteria Evaluation (MCE) dan zonasi Clockboard Kota Surakarta.
-                    </p>
-                </div>
 
-                <div class="legend-panel">
-                    <span class="legend-title"><i class="fas fa-layer-group me-2"></i>Legenda Konten</span>
-                    <div id="sidebar-legend-content">
-                        <!-- Legend will be injected here -->
-                    </div>
-                </div>
+       <div class="layer-toggle-panel">
+    <span class="layer-toggle-title"><i class="fas fa-layer-group"></i> Kontrol Lapisan</span>
 
-                <div class="layer-toggle-panel">
-                    <span class="layer-toggle-title"><i class="fas fa-toggle-on me-2"></i>Kontrol Layer</span>
-                    
-                    <div class="basemap-section">
-                        <h6>Basemap</h6>
-                        <div class="layer-item">
-                            <input type="radio" id="basemap-google" name="basemap" value="google" checked>
-                            <label for="basemap-google">Google Satellite</label>
-                        </div>
-                        <div class="layer-item">
-                            <input type="radio" id="basemap-osm" name="basemap" value="osm">
-                            <label for="basemap-osm">OpenStreetMap</label>
-                        </div>
-                        <div class="layer-item">
-                            <input type="radio" id="basemap-dark" name="basemap" value="dark">
-                            <label for="basemap-dark">Dark Matter (retina)</label>
-                        </div>
-                    </div>
-
-                    <div class="overlay-section">
-                        <h6>Overlays</h6>
-                        <div class="layer-item">
-                            <input type="checkbox" id="overlay-batas-admin" checked>
-                            <label for="overlay-batas-admin">Batas Admin Surakarta</label>
-                        </div>
-                        <div class="layer-item">
-                            <input type="checkbox" id="overlay-clockboard" checked>
-                            <label for="overlay-clockboard">Analisis Clockboard Zone Surakarta</label>
-                        </div>
-                        <div class="layer-item">
-                            <input type="checkbox" id="overlay-mce">
-                            <label for="overlay-mce">Multi-Criteria Evaluation Surakarta</label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-4 p-3 rounded" style="background: rgba(54, 153, 255, 0.1); border: 1px solid rgba(54, 153, 255, 0.2);">
-                    <h6 class="small mb-1 text-info">Insight Navigasi</h6>
-                    <p class="small mb-0" style="font-size: 0.75rem; color: #a2a5b9;">Gunakan kontrol layer di atas untuk mengaktifkan/nonaktifkan layer pada peta.</p>
-                </div>
-            </div>
-
-            <div class="sidebar-footer">
-                Developed by Evan &copy; 2025 <br> Perencanaan Wilayah & Kota
-            </div>
-        </aside>
-
-        <div id="map"></div>
+    <div class="basemap-section">
+        <h6>Tampilan Dasar</h6>
+        <div class="layer-item">
+            <input type="radio" id="basemap-google" name="basemap" value="google" checked>
+            <label for="basemap-google">Google Satellite</label>
+        </div>
+        <div class="layer-item">
+            <input type="radio" id="basemap-osm" name="basemap" value="osm">
+            <label for="basemap-osm">OpenStreetMap</label>
+        </div>
+        <div class="layer-item">
+            <input type="radio" id="basemap-dark" name="basemap" value="dark">
+            <label for="basemap-dark">Dark Matter (Retina)</label>
+        </div>
     </div>
+
+    <div class="overlay-section">
+        <h6>Analisis Data</h6>
+        <div class="layer-item">
+            <input type="checkbox" id="overlay-batas-admin" checked>
+            <label for="overlay-batas-admin">Batas Administrasi</label>
+        </div>
+        <div class="layer-item">
+            <input type="checkbox" id="overlay-clockboard" checked>
+            <label for="overlay-clockboard">Clockboard Zone</label>
+        </div>
+        <div class="layer-item">
+            <input type="checkbox" id="overlay-mce">
+            <label for="overlay-mce">MCE Surakarta</label>
+        </div>
+    </div>
+</div>
+
+<hr style="border: 0.5px solid #eee; margin: 15px 0;"> <div class="legend-panel">
+    <span class="legend-title"><i class="fas fa-list-ul"></i> Legenda Peta</span>
+    <div id="sidebar-legend-content">
+        </div>
+</div>
+
+
+<div class="mt-4 p-3 rounded" style="background: rgba(54, 153, 255, 0.1); border: 1px solid rgba(54, 153, 255, 0.2);">
+                    <h6 class="small mb-1 text-info">Insight Navigasi</h6>
+                    <p class="small mb-0" style="font-size: 0.75rem; color: #a2a5b9;">Aktifkan/nonaktifkan layer melalui ikon tumpukan di pojok kanan atas peta.</p>
+</div>
+     </div>
+
+                <div class="sidebar-footer">
+            <div class="mb-2" style="height: 1px; background: rgba(255,255,255,0.05);"></div>
+            <p class="mb-0">Created by <strong>Evan</strong> &copy; 2025</p>
+            <p class="small opacity-50">Urban & Regional Planning</p>
+                </div> </aside>
+
+
+<div id="map"></div>
+</div>
 
     <script src="js/qgis2web_expressions.js"></script>
     <script src="js/leaflet.js"></script>
@@ -790,7 +760,7 @@
             {label: 'Multi-Criteria Evaluation Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatTinggi0.png" /></td><td>Sangat Tinggi</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Tinggi1.png" /></td><td>Tinggi </td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Sedang2.png" /></td><td>Sedang</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Rendah3.png" /></td><td>Rendah</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatRendah4.png" /></td><td>Sangat Rendah</td></tr></table>', layer: layer_MultiCriteriaEvaluationSurakarta_3},
             {label: "Dark Matter (retina)", layer: layer_DarkMatterretina_2},]},
             {label: "OpenStreetMap", layer: layer_OpenStreetMap_1},
-            {label: "Google Satellite", layer: layer_GoogleSatellite_0, radioGroup: 'bm' },]
+            {label: "Google Satelite", layer: layer_GoogleSatellite_0, radioGroup: 'bm' },]
         var lay = L.control.layers.tree(null, overlaysTree,{
             //namedToggle: true,
             //selectorBack: false,
