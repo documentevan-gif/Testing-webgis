@@ -1,862 +1,1238 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <title>Webgis Clockboard Zone Evan - Pro Dashboard</title>
-        
-        <link rel="stylesheet" href="css/leaflet.css">
-        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
-        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
-        <link rel="stylesheet" href="css/qgis2web.css">
-        <link rel="stylesheet" href="css/fontawesome-all.min.css">
-        <link rel="stylesheet" href="css/leaflet.photon.css">
-        <link rel="stylesheet" href="css/leaflet-measure.css">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Webgis Clockboard Zone Evan - Pro Dashboard</title>
+    
+    <link rel="stylesheet" href="css/leaflet.css">
+    <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+    <link rel="stylesheet" href="css/L.Control.Locate.min.css">
+    <link rel="stylesheet" href="css/qgis2web.css">
+    <link rel="stylesheet" href="css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="css/leaflet.photon.css">
+    <link rel="stylesheet" href="css/leaflet-measure.css">
 
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
-       <style>
+    <style>
     :root {
         --sidebar-width: 360px;
-        --primary-dark: #1a1a27;
-        --secondary-dark: #24243e;
+        --primary-dark: #0f1724;
         --accent-color: #00d2ff;
         --text-muted: #a2a5b9;
-        --glass: rgba(255, 255, 255, 0.03);
     }
 
-    body { font-family: 'Inter', sans-serif; background: #000; }
+    html, body { height: 100%; margin: 0; font-family: 'Inter', sans-serif; background: #000; }
+    #dashboard-wrapper { position: relative; height: 100vh; width: 100vw; overflow: hidden; }
 
-    #dashboard-wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-
-    /* Sidebar Enhancement */
+    /* SIDEBAR - default off-screen (hidden) */
     #sidebar {
+        position: absolute;
+        left: 0;
+        top: 0;
         width: var(--sidebar-width);
-        background: var(--primary-dark);
-        color: #ffffff;
+        height: 100%;
+        background: linear-gradient(180deg, rgba(10,12,20,0.98), rgba(20,22,30,0.98));
+        color: #fff;
+        z-index: 1400;
+        transform: translateX(calc(-1 * var(--sidebar-width)));
+        transition: transform 300ms cubic-bezier(.2,.9,.2,1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
         display: flex;
         flex-direction: column;
-        border-right: 1px solid rgba(255,255,255,0.05);
-        z-index: 1000;
-        transition: all 0.3s ease;
+        border-right: 1px solid rgba(255,255,255,0.03);
+    }
+    /* When wrapper has .sidebar-open, slide sidebar in */
+    #dashboard-wrapper.sidebar-open #sidebar {
+        transform: translateX(0);
     }
 
-    .sidebar-header {
-        padding: 30px 25px;
-        background: linear-gradient(to bottom, rgba(0,210,255,0.1), transparent);
+    .sidebar-header { padding: 20px; background: linear-gradient(to bottom, rgba(0,210,255,0.03), transparent); }
+    .sidebar-header h4 { margin:0; color: var(--accent-color); font-weight:700; text-transform:uppercase; font-size:1.05rem; }
+
+    .sidebar-content { padding: 16px; overflow-y: auto; flex:1; }
+    .sidebar-footer { padding: 12px 16px; font-size: 13px; color: rgba(255,255,255,0.7); border-top: 1px solid rgba(255,255,255,0.02); }
+
+    /* MAP - selalu mengisi viewport; when sidebar-open on wide screens the map is pushed */
+    #map { position: absolute; left:0; right:0; top:0; bottom:0; z-index: 100; transition: transform 300ms cubic-bezier(.2,.9,.2,1); transform: translateX(0); will-change: transform; }
+
+    /* push behavior: move map to right by sidebar width when open */
+    @media (min-width: 901px) {
+        #dashboard-wrapper.sidebar-open #map { transform: translateX(var(--sidebar-width)); }
+    }
+    /* on small screens do NOT push (keep overlay) */
+    @media (max-width: 900px) {
+        #dashboard-wrapper.sidebar-open #map { transform: none; }
+        #sidebar { width: 90vw; max-width: 360px; transform: translateX(calc(-1 * 90vw)); }
+        #dashboard-wrapper.sidebar-open #sidebar { transform: translateX(0); }
     }
 
-    .sidebar-header h4 {
-        font-size: 1.2rem;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        color: var(--accent-color);
-        text-transform: uppercase;
-    }
-
-    /* Scrollbar Styling */
-    .sidebar-content {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-    }
-    .sidebar-content::-webkit-scrollbar { width: 5px; }
-    .sidebar-content::-webkit-scrollbar-thumb { background: var(--secondary-dark); border-radius: 10px; }
-
-    /* Professional Card Panels */
-    .legend-panel, .layer-toggle-panel {
-        background: var(--glass);
-        border-radius: 16px;
-        padding: 20px;
-        margin-bottom: 20px;
-        border: 1px solid rgba(255,255,255,0.08);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-
-    .legend-title, .layer-toggle-title {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: var(--accent-color);
-        text-transform: uppercase;
-        margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    /* Legend Styling */
-    #sidebar-legend-content table {
-        width: 100% !important;
-        border-collapse: separate;
-        border-spacing: 0 8px;
-    }
-
-    #sidebar-legend-content td {
-        font-size: 0.85rem;
-        color: #e1e1e6;
-    }
-
-    #sidebar-legend-content img {
-        width: 20px;
-        height: 20px;
-        border-radius: 4px;
-        margin-right: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    }
-
-    /* Custom Checkbox/Radio */
-    .layer-item {
-        display: flex;
-        align-items: center;
-        padding: 8px 12px;
-        border-radius: 8px;
-        transition: background 0.2s;
+    /* small toggle button on map */
+    .map-toggle {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 1500;
+        border-radius: 10px;
+        background: rgba(10,10,15,0.75);
+        color: #fff;
+        border: none;
+        padding: 8px 10px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.45);
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 180ms ease, box-shadow 180ms ease;
     }
-    .layer-item:hover { background: rgba(255,255,255,0.05); }
+    .map-toggle:active { transform: scale(.98); }
+    .map-toggle .icon { transition: transform 300ms ease; display:inline-block; }
+    /* rotate icon when open */
+    #dashboard-wrapper.sidebar-open .map-toggle .icon { transform: rotate(90deg); }
 
-    .layer-item input { margin-right: 12px; accent-color: var(--accent-color); }
+    /* make sure leaflet controls appear above map but below sidebar toggle */
+    .leaflet-control-container { z-index: 1200; }
 
-    .basemap-section h6, .overlay-section h6 {
-        font-size: 0.8rem;
-        color: var(--text-muted);
-        margin: 15px 0 10px 10px;
+    /* legend small style */
+    .legend-panel, .layer-toggle-panel {
+        background: rgba(255,255,255,0.02);
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+        border: 1px solid rgba(255,255,255,0.03);
     }
+    .layer-item { display:flex; align-items:center; gap:10px; padding:8px; border-radius:8px; cursor:pointer; }
+    .layer-item:hover { background: rgba(255,255,255,0.02); }
+    .layer-item input { margin-right: 8px; accent-color: var(--accent-color); }
 
-    #map { flex: 1; background: #111; }
+    /* accessible focus */
+    .map-toggle:focus { outline: 2px solid rgba(0,210,255,0.12); }
 
-    /* Map Controls UI */
-    .leaflet-control-zoom, .leaflet-control-measure, .leaflet-control-locate {
-        border: none !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+    /* ===========================
+       HIDE TEXT ON LEAFLET.MEASURE BUTTON (keep toggle + accessible labels)
+       =========================== */
+    .leaflet-control-measure .leaflet-control-measure-toggle a {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      box-sizing: border-box;
+      text-indent: -9999px;   /* sembunyikan teks */
+      overflow: hidden;
+      white-space: nowrap;
     }
-</style>
-    <body>
-
-<div id="dashboard-wrapper">
-    <aside id="sidebar">
+    /* Optional icon styling (uncomment if you want a fontawesome icon) */
+//  content: "\f545"; /* coba code icon; bisa disesuaikan */
+//  font-weight: 900;
+//  font-size: 14px;
+//  color: #fff;
+//}
+    </style>
+</head>
+<body>
+<div id="dashboard-wrapper" class="">
+    <aside id="sidebar" aria-label="Sidebar">
         <div class="sidebar-header">
-            <h4>SURAKARTA WEBGIS EVAN</h4>
+            <h4>WEBGIS CLOCKBOARD ZONE SURAKARTA EVAN</h4>
             <div class="d-flex align-items-center mt-2">
                 <span class="badge bg-primary me-2" style="font-size: 0.6rem;">EVAN DASHBOARD</span>
-                <p class="small text-muted mb-0" style="font-size: 0.7rem;">Clockboard Analysis 2025</p>
+                <p class="small text-muted mb-0" style="font-size: 0.7rem; color: rgba(255,255,255,0.6);">Clockboard Analysis 2025</p>
             </div>
         </div>
-        
+
         <div class="sidebar-content">
-            <div class="mb-4 p-3 rounded-4" style="background: linear-gradient(45deg, rgba(0,210,255,0.05), rgba(54,153,255,0.1)); border-left: 3px solid var(--accent-color);">
-                <p class="small text-light mb-0" style="line-height: 1.5; opacity: 0.9;">
+            <div class="mb-3 p-3 rounded-3" style="background: linear-gradient(45deg, rgba(0,210,255,0.03), rgba(54,153,255,0.04)); border-left: 3px solid var(--accent-color);">
+                <p class="small text-light mb-0" style="line-height: 1.4; color: #dfe9f1;">
                     Visualisasi spasial <strong>Multi-Criteria Evaluation (MCE)</strong> dan zonasi strategis Clockboard Kota Surakarta.
                 </p>
             </div>
 
-            
+            <div class="layer-toggle-panel">
+                <div class="mb-2" style="font-weight:700; color:var(--accent-color); display:flex; gap:8px; align-items:center;">
+                    <i class="fas fa-layer-group"></i> Kontrol Lapisan
+                </div>
+                <div>
+                    <div style="font-size:0.78rem; color: var(--text-muted); margin-bottom:6px;">Tampilan Dasar</div>
+                    <label class="layer-item"><input type="radio" id="basemap-google" name="basemap" value="google" checked> Google Satellite</label>
+                    <label class="layer-item"><input type="radio" id="basemap-osm" name="basemap" value="osm"> OpenStreetMap</label>
+                    <label class="layer-item"><input type="radio" id="basemap-dark" name="basemap" value="dark"> Dark Matter (Retina)</label>
+                </div>
 
-       <div class="layer-toggle-panel">
-    <span class="layer-toggle-title"><i class="fas fa-layer-group"></i> Kontrol Lapisan</span>
+                <hr style="border:0.5px solid rgba(255,255,255,0.03); margin:10px 0;">
 
-    <div class="basemap-section">
-        <h6>Tampilan Dasar</h6>
-        <div class="layer-item">
-            <input type="radio" id="basemap-google" name="basemap" value="google" checked>
-            <label for="basemap-google">Google Satellite</label>
-        </div>
-        <div class="layer-item">
-            <input type="radio" id="basemap-osm" name="basemap" value="osm">
-            <label for="basemap-osm">OpenStreetMap</label>
-        </div>
-        <div class="layer-item">
-            <input type="radio" id="basemap-dark" name="basemap" value="dark">
-            <label for="basemap-dark">Dark Matter (Retina)</label>
-        </div>
-    </div>
+                <div>
+                    <div style="font-size:0.78rem; color: var(--text-muted); margin-bottom:6px;">Analisis Data</div>
+                    <label class="layer-item"><input type="checkbox" id="overlay-clockboard" checked> Clockboard Zone</label>
+                    <label class="layer-item"><input type="checkbox" id="overlay-mce"> MCE Surakarta</label>
+                    <label class="layer-item"><input type="checkbox" id="overlay-batas-admin"> Batas Administrasi</label>
+                </div>
+            </div>
 
-    <div class="overlay-section">
-        <h6>Analisis Data</h6>
-        <div class="layer-item">
-            <input type="checkbox" id="overlay-batas-admin" checked>
-            <label for="overlay-batas-admin">Batas Administrasi</label>
+            <div class="legend-panel" style="margin-top:12px;">
+                <div style="font-weight:700; color:var(--accent-color); display:flex; gap:8px; align-items:center;">
+                    <i class="fas fa-list-ul"></i> Legenda Peta
+                </div>
+                <div id="sidebar-legend-content" style="margin-top:8px; font-size:0.9rem; color:#e6eef8;"></div>
+            </div>
+
+            <div class="p-3" style="background: rgba(54,153,255,0.04); border-radius:8px; border:1px solid rgba(54,153,255,0.06);">
+                <h6 class="small mb-1 text-info" style="color:var(--accent-color);">Insight Navigasi</h6>
+                <p class="small mb-0" style="font-size: 0.78rem; color: #a8b0c0;">Aktifkan/nonaktifkan layer melalui checkbox di sini atau menggunakan kontrol layer di pojok kanan atas peta.</p>
+            </div>
         </div>
-        <div class="layer-item">
-            <input type="checkbox" id="overlay-clockboard" checked>
-            <label for="overlay-clockboard">Clockboard Zone</label>
+
+        <div class="sidebar-footer">
+            <div style="height:1px;background:rgba(255,255,255,0.02); margin-bottom:8px;"></div>
+            <div>Created by <strong>Evan</strong> &copy; 2025</div>
+            <div class="small" style="color: rgba(255,255,255,0.6);">Urban & Regional Planning</div>
         </div>
-        <div class="layer-item">
-            <input type="checkbox" id="overlay-mce">
-            <label for="overlay-mce">MCE Surakarta</label>
-        </div>
-    </div>
+    </aside>
+
+    <div id="map" role="application" aria-label="Peta utama"></div>
+
+    <button id="sidebar-toggle" class="map-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
+        <i class="icon fas fa-bars"></i>
+        <span class="visually-hidden">Toggle sidebar</span>
+    </button>
 </div>
 
-<hr style="border: 0.5px solid #eee; margin: 15px 0;"> <div class="legend-panel">
-    <span class="legend-title"><i class="fas fa-list-ul"></i> Legenda Peta</span>
-    <div id="sidebar-legend-content">
-        </div>
-</div>
+<!-- qgis2web + leaflet + plugins -->
+<script src="js/qgis2web_expressions.js"></script>
+<script src="js/leaflet.js"></script>
+<script src="js/L.Control.Layers.Tree.min.js"></script>
+<script src="js/L.Control.Locate.min.js"></script>
+<script src="js/leaflet.rotatedMarker.js"></script>
+<script src="js/leaflet.pattern.js"></script>
+<script src="js/leaflet-hash.js"></script>
+<script src="js/Autolinker.min.js"></script>
+<script src="js/rbush.min.js"></script>
+<script src="js/labelgun.min.js"></script>
+<script src="js/labels.js"></script>
+<script src="js/leaflet.photon.js"></script>
+<script src="js/leaflet-measure.js"></script>
 
+<!-- data -->
+<script src="data/MultiCriteriaEvaluationSurakarta_3.js"></script>
+<script src="data/AnalisisClockboardZoneSurakarta_4.js"></script>
+<script src="data/BatasAdminSurakarta_5.js"></script>
 
-<div class="mt-4 p-3 rounded" style="background: rgba(54, 153, 255, 0.1); border: 1px solid rgba(54, 153, 255, 0.2);">
-                    <h6 class="small mb-1 text-info">Insight Navigasi</h6>
-                    <p class="small mb-0" style="font-size: 0.75rem; color: #a2a5b9;">Aktifkan/nonaktifkan layer melalui ikon tumpukan di pojok kanan atas peta.</p>
-</div>
-     </div>
+<script>
+/* ========================
+   --- BEGIN qgis2web code (dipertahankan) ---
+   ======================== */
+var highlightLayer;
+function highlightFeature(e) {
+    highlightLayer = e.target;
+    if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+      highlightLayer.setStyle({ color: 'rgba(255, 255, 0, 1.00)' });
+    } else {
+      highlightLayer.setStyle({ fillColor: 'rgba(255, 255, 0, 1.00)', fillOpacity: 1 });
+    }
+    highlightLayer.openPopup();
+}
 
-                <div class="sidebar-footer">
-            <div class="mb-2" style="height: 1px; background: rgba(255,255,255,0.05);"></div>
-            <p class="mb-0">Created by <strong>Evan</strong> &copy; 2025</p>
-            <p class="small opacity-50">Urban & Regional Planning</p>
-                </div> </aside>
+var map = L.map('map', { zoomControl: false, maxZoom: 28, minZoom: 1 })
+    .fitBounds([[-7.597069084198594,110.76663390539312],[-7.520191120726702,110.87154808329655]]);
+var hash = new L.Hash(map);
+map.attributionControl.setPrefix('<a href="https://www.linkedin.com/in/evan-derman/" target="_blank">LinkedIn Evan</a> &middot; <a href="https://leafletjs.com">Leaflet</a> &middot; <a href="https://sites.google.com/view/portfolioevanderman/home">Evan</a>');
+var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
 
+function removeEmptyRowsFromPopupContent(content, feature) {
+ var tempDiv = document.createElement('div');
+ tempDiv.innerHTML = content;
+ var rows = tempDiv.querySelectorAll('tr');
+ for (var i = 0; i < rows.length; i++) {
+     var td = rows[i].querySelector('td.visible-with-data');
+     var key = td ? td.id : '';
+     if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+         rows[i].parentNode.removeChild(rows[i]);
+     }
+ }
+ return tempDiv.innerHTML;
+}
+function addClassToPopupIfMedia(content, popup) {
+    var tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    var imgTd = tempDiv.querySelector('td img');
+    if (imgTd) {
+        var src = imgTd.getAttribute('src');
+        if (/\.(jpg|jpeg|png|gif|bmp|webp|avif)$/i.test(src)) {
+            popup._contentNode.classList.add('media');
+            setTimeout(function() { popup.update(); }, 10);
+        } else if (/\.(mp3|wav|ogg|aac)$/i.test(src)) {
+            var audio = document.createElement('audio');
+            audio.controls = true; audio.src = src;
+            imgTd.parentNode.replaceChild(audio, imgTd);
+            popup._contentNode.classList.add('media');
+            setTimeout(function() { popup.setContent(tempDiv.innerHTML); popup.update(); }, 10);
+        } else if (/\.(mp4|webm|ogg|mov)$/i.test(src)) {
+            var video = document.createElement('video');
+            video.controls = true; video.src = src;
+            video.style.maxHeight = "60vh"; video.style.maxWidth = "60vw";
+            imgTd.parentNode.replaceChild(video, imgTd);
+            popup._contentNode.classList.add('media');
+            video.addEventListener('loadedmetadata', function() { popup.update(); });
+            setTimeout(function() { popup.setContent(tempDiv.innerHTML); popup.update(); }, 10);
+        } else { popup._contentNode.classList.remove('media'); }
+    } else { popup._contentNode.classList.remove('media'); }
+}
 
-<div id="map"></div>
-</div>
+var bounds_group = new L.featureGroup([]);
+function setBounds() {}
 
-    <script src="js/qgis2web_expressions.js"></script>
-    <script src="js/leaflet.js"></script>
-    <script src="js/L.Control.Layers.Tree.min.js"></script>
-    <script src="js/L.Control.Locate.min.js"></script>
-    <script src="js/leaflet.rotatedMarker.js"></script>
-    <script src="js/leaflet.pattern.js"></script>
-    <script src="js/leaflet-hash.js"></script>
-    <script src="js/Autolinker.min.js"></script>
-    <script src="js/rbush.min.js"></script>
-    <script src="js/labelgun.min.js"></script>
-    <script src="js/labels.js"></script>
-    <script src="js/leaflet.photon.js"></script>
-    <script src="js/leaflet-measure.js"></script>
-    <script src="data/MultiCriteriaEvaluationSurakarta_3.js"></script>
-    <script src="data/AnalisisClockboardZoneSurakarta_4.js"></script>
-    <script src="data/BatasAdminSurakarta_5.js"></script>
-    <script>
-        var highlightLayer;
-        function highlightFeature(e) {
-            highlightLayer = e.target;
+/* Tile + GeoJSON layers (pertahankan definisi lama Anda) */
+map.createPane('pane_GoogleSatellite_0'); map.getPane('pane_GoogleSatellite_0').style.zIndex = 400;
+var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { pane:'pane_GoogleSatellite_0', opacity:1.0, attribution:'', minZoom:1, maxZoom:28, minNativeZoom:0, maxNativeZoom:19 });
 
-            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
-              highlightLayer.setStyle({
-                color: 'rgba(255, 255, 0, 1.00)',
-              });
-            } else {
-              highlightLayer.setStyle({
-                fillColor: 'rgba(255, 255, 0, 1.00)',
-                fillOpacity: 1
-              });
+map.createPane('pane_OpenStreetMap_1'); map.getPane('pane_OpenStreetMap_1').style.zIndex = 401;
+var layer_OpenStreetMap_1 = L.tileLayer('http://tile.osm.org/{z}/{x}/{y}.png', { pane:'pane_OpenStreetMap_1', opacity:1.0, attribution:'', minZoom:1, maxZoom:28, minNativeZoom:0, maxNativeZoom:19 });
+
+map.createPane('pane_DarkMatterretina_2'); map.getPane('pane_DarkMatterretina_2').style.zIndex = 402;
+var layer_DarkMatterretina_2 = L.tileLayer('https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', { pane:'pane_DarkMatterretina_2', opacity:1.0, attribution:'', minZoom:1, maxZoom:28, minNativeZoom:0, maxNativeZoom:20 });
+
+/* contoh popup/style layer - salin dari file Anda sebelumnya */
+function pop_MultiCriteriaEvaluationSurakarta_3(feature, layer) {
+    layer.on({ mouseout: function(e) {
+        for (var i in e.target._eventParents) {
+            if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                e.target._eventParents[i].resetStyle(e.target);
             }
-            highlightLayer.openPopup();
         }
-        var map = L.map('map', {
-            zoomControl:false, maxZoom:28, minZoom:1
-        }).fitBounds([[-7.597069084198594,110.76663390539312],[-7.520191120726702,110.87154808329655]]);
-        var hash = new L.Hash(map);
-        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
-        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
-        // remove popup's row if "visible-with-data"
-        function removeEmptyRowsFromPopupContent(content, feature) {
-         var tempDiv = document.createElement('div');
-         tempDiv.innerHTML = content;
-         var rows = tempDiv.querySelectorAll('tr');
-         for (var i = 0; i < rows.length; i++) {
-             var td = rows[i].querySelector('td.visible-with-data');
-             var key = td ? td.id : '';
-             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
-                 rows[i].parentNode.removeChild(rows[i]);
-             }
-         }
-         return tempDiv.innerHTML;
+        if (typeof layer.closePopup == 'function') layer.closePopup(); else layer.eachLayer(function(feature){ feature.closePopup(); });
+    }, mouseover: highlightFeature });
+    var popupContent = '<table><tr><td colspan="2"><strong>DN</strong><br />' + (feature.properties['DN'] !== null ? autolinker.link(String(feature.properties['DN']).replace(/'/g, '\'').toLocaleString()) : '') + '</td></tr></table>';
+    var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+    layer.on('popupopen', function(e) { addClassToPopupIfMedia(content, e.popup); });
+    layer.bindPopup(content, { maxHeight: 400 });
+}
+function style_MultiCriteriaEvaluationSurakarta_3_0(feature) {
+    switch(String(feature.properties['DN'])) {
+        case '1': return { pane:'pane_MultiCriteriaEvaluationSurakarta_3', stroke:false, fill:true, fillOpacity:1, fillColor:'rgba(215,25,28,1.0)', interactive:true };
+        case '2': return { pane:'pane_MultiCriteriaEvaluationSurakarta_3', stroke:false, fill:true, fillOpacity:1, fillColor:'rgba(253,174,97,1.0)', interactive:true };
+        case '3': return { pane:'pane_MultiCriteriaEvaluationSurakarta_3', stroke:false, fill:true, fillOpacity:1, fillColor:'rgba(255,255,191,1.0)', interactive:true };
+        case '4': return { pane:'pane_MultiCriteriaEvaluationSurakarta_3', stroke:false, fill:true, fillOpacity:1, fillColor:'rgba(171,221,164,1.0)', interactive:true };
+        case '5': return { pane:'pane_MultiCriteriaEvaluationSurakarta_3', stroke:false, fill:true, fillOpacity:1, fillColor:'rgba(43,131,186,1.0)', interactive:true };
+    }
+}
+map.createPane('pane_MultiCriteriaEvaluationSurakarta_3'); map.getPane('pane_MultiCriteriaEvaluationSurakarta_3').style.zIndex = 403;
+map.getPane('pane_MultiCriteriaEvaluationSurakarta_3').style['mix-blend-mode'] = 'color-dodge';
+var layer_MultiCriteriaEvaluationSurakarta_3 = new L.geoJson(json_MultiCriteriaEvaluationSurakarta_3, {
+    attribution:'', interactive:true, dataVar:'json_MultiCriteriaEvaluationSurakarta_3', layerName:'layer_MultiCriteriaEvaluationSurakarta_3',
+    pane:'pane_MultiCriteriaEvaluationSurakarta_3', onEachFeature: pop_MultiCriteriaEvaluationSurakarta_3, style: style_MultiCriteriaEvaluationSurakarta_3_0
+});
+bounds_group.addLayer(layer_MultiCriteriaEvaluationSurakarta_3);
+
+function pop_AnalisisClockboardZoneSurakarta_4(feature, layer) {
+    layer.on({ mouseout: function(e) {
+        for (var i in e.target._eventParents) {
+            if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                e.target._eventParents[i].resetStyle(e.target);
+            }
         }
-        // modify popup if contains media
-        function addClassToPopupIfMedia(content, popup) {
-            var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            var imgTd = tempDiv.querySelector('td img');
-            if (imgTd) {
-                var src = imgTd.getAttribute('src');
-                if (/\.(jpg|jpeg|png|gif|bmp|webp|avif)$/i.test(src)) {
-                    popup._contentNode.classList.add('media');
-                    setTimeout(function() {
-                        popup.update();
-                    }, 10);
-                } else if (/\.(mp3|wav|ogg|aac)$/i.test(src)) {
-                    var audio = document.createElement('audio');
-                    audio.controls = true;
-                    audio.src = src;
-                    imgTd.parentNode.replaceChild(audio, imgTd);
-                    popup._contentNode.classList.add('media');
-                    setTimeout(function() {
-                        popup.setContent(tempDiv.innerHTML);
-                        popup.update();
-                    }, 10);
-                } else if (/\.(mp4|webm|ogg|mov)$/i.test(src)) {
-                    var video = document.createElement('video');
-                    video.controls = true;
-                    video.src = src;
-                    video.style.width = "400px";
-                    video.style.height = "300px";
-                    video.style.maxHeight = "60vh";
-                    video.style.maxWidth = "60vw";
-                    imgTd.parentNode.replaceChild(video, imgTd);
-                    popup._contentNode.classList.add('media');
-                    // Aggiorna il popup quando il video carica i metadati
-                    video.addEventListener('loadedmetadata', function() {
-                        popup.update();
-                    });
-                    setTimeout(function() {
-                        popup.setContent(tempDiv.innerHTML);
-                        popup.update();
-                    }, 10);
-                } else {
-                    popup._contentNode.classList.remove('media');
+        if (typeof layer.closePopup == 'function') layer.closePopup(); else layer.eachLayer(function(feature){ feature.closePopup(); });
+    }, mouseover: highlightFeature });
+    var popupContent = '<table>\
+            <tr><td class="visible-with-data" id="zone_id" colspan="2"><strong>Zona Clockboard</strong><br />' + (feature.properties['zone_id'] !== null ? autolinker.link(String(feature.properties['zone_id']).replace(/'/g, '\'').toLocaleString()) : '') + '</td></tr>\
+            <tr><td colspan="2">' + (feature.properties['zone_sum'] !== null ? autolinker.link(String(feature.properties['zone_sum']).replace(/'/g, '\'').toLocaleString()) : '') + '</td></tr>\
+            <tr><td colspan="2">' + (feature.properties['zone_mean'] !== null ? autolinker.link(String(feature.properties['zone_mean']).replace(/'/g, '\'').toLocaleString()) : '') + '</td></tr>\
+            <tr><td class="visible-with-data" id="Source" colspan="2"><strong>Source</strong><br />' + (feature.properties['Source'] !== null ? autolinker.link(String(feature.properties['Source']).replace(/'/g, '\'').toLocaleString()) : '') + '</td></tr>\
+        </table>';
+    var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+    layer.on('popupopen', function(e) { addClassToPopupIfMedia(content, e.popup); });
+    layer.bindPopup(content, { maxHeight: 400 });
+}
+function style_AnalisisClockboardZoneSurakarta_4_0(feature) {
+    if (feature.properties['zone_mean'] >= 143.319368 && feature.properties['zone_mean'] <= 178.262560 ) return { pane:'pane_AnalisisClockboardZoneSurakarta_4', opacity:1, color:'rgba(0,0,0,1.0)', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(215,25,28,1.0)', interactive:true };
+    if (feature.properties['zone_mean'] >= 178.262560 && feature.properties['zone_mean'] <= 199.836309 ) return { pane:'pane_AnalisisClockboardZoneSurakarta_4', opacity:1, color:'rgba(0,0,0,1.0)', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(253,174,97,1.0)', interactive:true };
+    if (feature.properties['zone_mean'] >= 199.836309 && feature.properties['zone_mean'] <= 211.293532 ) return { pane:'pane_AnalisisClockboardZoneSurakarta_4', opacity:1, color:'rgba(0,0,0,1.0)', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(255,255,191,1.0)', interactive:true };
+    if (feature.properties['zone_mean'] >= 211.293532 && feature.properties['zone_mean'] <= 226.771112 ) return { pane:'pane_AnalisisClockboardZoneSurakarta_4', opacity:1, color:'rgba(0,0,0,1.0)', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(171,221,164,1.0)', interactive:true };
+    if (feature.properties['zone_mean'] >= 226.771112 && feature.properties['zone_mean'] <= 248.438013 ) return { pane:'pane_AnalisisClockboardZoneSurakarta_4', opacity:1, color:'rgba(0,0,0,1.0)', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(43,131,186,1.0)', interactive:true };
+}
+map.createPane('pane_AnalisisClockboardZoneSurakarta_4'); map.getPane('pane_AnalisisClockboardZoneSurakarta_4').style.zIndex = 404;
+map.getPane('pane_AnalisisClockboardZoneSurakarta_4').style['mix-blend-mode'] = 'overlay';
+var layer_AnalisisClockboardZoneSurakarta_4 = new L.geoJson(json_AnalisisClockboardZoneSurakarta_4, {
+    attribution:'', interactive:true, dataVar:'json_AnalisisClockboardZoneSurakarta_4', layerName:'layer_AnalisisClockboardZoneSurakarta_4',
+    pane:'pane_AnalisisClockboardZoneSurakarta_4', onEachFeature: pop_AnalisisClockboardZoneSurakarta_4, style: style_AnalisisClockboardZoneSurakarta_4_0
+});
+bounds_group.addLayer(layer_AnalisisClockboardZoneSurakarta_4);
+
+function pop_BatasAdminSurakarta_5(feature, layer) {
+    layer.on({ mouseout: function(e) {
+        for (var i in e.target._eventParents) {
+            if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                e.target._eventParents[i].resetStyle(e.target);
+            }
+        }
+        if (typeof layer.closePopup == 'function') layer.closePopup(); else layer.eachLayer(function(feature){ feature.closePopup(); });
+    }, mouseover: highlightFeature });
+    var popupContent = '<table></table>';
+    var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+    layer.on('popupopen', function(e) { addClassToPopupIfMedia(content, e.popup); });
+    layer.bindPopup(content, { maxHeight: 400 });
+}
+function style_BatasAdminSurakarta_5_0(feature) {
+    switch(String(feature.properties['WADMKC'])) {
+        case 'Banjarsari': return { pane:'pane_BatasAdminSurakarta_5', opacity:1, color:'rgba(255,255,255,1.0)', dashArray:'5.0,1.0', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(68,1,84,1.0)', interactive:false };
+        case 'Jebres': return { pane:'pane_BatasAdminSurakarta_5', opacity:1, color:'rgba(255,255,255,1.0)', dashArray:'5.0,1.0', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(59,82,139,1.0)', interactive:false };
+        case 'Laweyan': return { pane:'pane_BatasAdminSurakarta_5', opacity:1, color:'rgba(255,255,255,1.0)', dashArray:'5.0,1.0', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(33,144,141,1.0)', interactive:false };
+        case 'Pasar Kliwon': return { pane:'pane_BatasAdminSurakarta_5', opacity:1, color:'rgba(255,255,255,1.0)', dashArray:'5.0,1.0', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(93,201,99,1.0)', interactive:false };
+        case 'Serengan': return { pane:'pane_BatasAdminSurakarta_5', opacity:1, color:'rgba(255,255,255,1.0)', dashArray:'5.0,1.0', weight:1.0, fill:true, fillOpacity:1, fillColor:'rgba(253,231,37,1.0)', interactive:false };
+    }
+}
+map.createPane('pane_BatasAdminSurakarta_5'); map.getPane('pane_BatasAdminSurakarta_5').style.zIndex = 405;
+map.getPane('pane_BatasAdminSurakarta_5').style['mix-blend-mode'] = 'hard-light';
+var layer_BatasAdminSurakarta_5 = new L.geoJson(json_BatasAdminSurakarta_5, {
+    attribution:'', interactive:false, dataVar:'json_BatasAdminSurakarta_5', layerName:'layer_BatasAdminSurakarta_5',
+    pane:'pane_BatasAdminSurakarta_5', onEachFeature: pop_BatasAdminSurakarta_5, style: style_BatasAdminSurakarta_5_0
+});
+bounds_group.addLayer(layer_BatasAdminSurakarta_5);
+
+/* Photon control (opsional) */
+const url = {"Nominatim OSM": "https://nominatim.openstreetmap.org/search?format=geojson&addressdetails=1&", "France BAN": "https://api-adresse.data.gouv.fr/search?"}
+var photonControl = L.control.photon({
+    url: url["Nominatim OSM"],
+    feedbackLabel: '',
+    position: 'topleft',
+    includePosition: true,
+    initial: true,
+}).addTo(map);
+photonControl._container.childNodes[0].style.borderRadius="10px"
+
+var overlaysTree = [
+    {label: 'Batas Admin Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Banjarsari0.png" /></td><td>Banjarsari</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Jebres1.png" /></td><td>Jebres</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Laweyan2.png" /></td><td>Laweyan</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_PasarKliwon3.png" /></td><td>Pasar Kliwon</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Serengan4.png" /></td><td>Serengan</td></tr></table>', layer: layer_BatasAdminSurakarta_5},
+    {label: 'Analisis Clockboard Zone Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring10.png" /></td><td>Ring 1</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring21.png" /></td><td>Ring 2</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring32.png" /></td><td>Ring 3</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring43.png" /></td><td>Ring 4</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring54.png" /></td><td>Ring 5</td></tr></table>', layer: layer_AnalisisClockboardZoneSurakarta_4},
+    {label: '<b>Multi-Criteria Evaluation Surakarta</b>', collapsed: true, selectAllCheckbox: true, children: [
+        {label: 'Multi-Criteria Evaluation Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatTinggi0.png" /></td><td>Sangat Tinggi</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Tinggi1.png" /></td><td>Tinggi </td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Sedang2.png" /></td><td>Sedang</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Rendah3.png" /></td><td>Rendah</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatRendah4.png" /></td><td>Sangat Rendah</td></tr></table>', layer: layer_MultiCriteriaEvaluationSurakarta_3},
+        {label: "Dark Matter (retina)", layer: layer_DarkMatterretina_2}
+    ]},
+    {label: "OpenStreetMap", layer: layer_OpenStreetMap_1},
+    {label: "Google Satelite", layer: layer_GoogleSatellite_0, radioGroup: 'bm' },
+];
+
+var lay = L.control.layers.tree(null, overlaysTree,{ collapsed: true, }).addTo(map);
+setBounds();
+
+/* Label logic and reset calls (mengandalkan labels.js dari proyek Anda) */
+try {
+    layer_BatasAdminSurakarta_5.eachLayer(function(layer) {
+        layer.bindTooltip((layer.feature.properties['WADMKC'] !== null?String('<div style="color: #323232; font-size: 6pt;">' + layer.feature.properties['WADMKC']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_BatasAdminSurakarta_5'});
+    });
+} catch (e) {}
+
+/* inject legend */
+(function renderInitialLegend(){
+    var container = document.getElementById('sidebar-legend-content');
+    if (!container) return;
+    container.innerHTML = '';
+    overlaysTree.forEach(function(item){
+        var div = document.createElement('div');
+        div.style.padding = '6px 0';
+        div.innerHTML = item.label || '';
+        container.appendChild(div);
+    });
+})();
+
+/* controls */
+L.control.zoom({ position: 'topright' }).addTo(map);
+L.control.locate({ position: 'topright' }).addTo(map);
+new L.Control.Measure({ position: 'topright', primaryLengthUnit: 'meters' }).addTo(map);
+
+/* ========================
+   --- CLEANUP MEASURE BUTTON TEXT (keep functionality & accessibility)
+   ======================== */
+setTimeout(function(){
+    // plugin biasanya membuat .leaflet-control-measure .leaflet-control-measure-toggle a
+    var btn = document.querySelector('.leaflet-control-measure .leaflet-control-measure-toggle a');
+    if (!btn) {
+        // fallback: coba selector lain
+        btn = document.querySelector('.leaflet-control-measure a');
+    }
+    if (btn) {
+        // kosongkan teks visual (CSS sudah memindahkan teks dengan text-indent)
+        btn.textContent = '';
+        // tetap sediakan tooltip dan label untuk aksesibilitas
+        btn.setAttribute('title', 'Measure');
+        btn.setAttribute('aria-label', 'Measure');
+        // jika ingin menampilkan icon via pseudo-element, tambahkan kelas dan sesuaikan CSS
+        btn.classList.add('compact-control');
+    }
+}, 80);
+
+/* ========================
+   --- INITIAL LAYER STATE: only Google Satellite + Clockboard Zone
+   ======================== */
+// Pastikan hanya basemap Google dan layer Clockboard ditambahkan saat startup.
+// Remove terlebih dahulu agar tidak ada sisa, lalu tambahkan dua layer yang diinginkan.
+try { map.removeLayer(layer_GoogleSatellite_0); } catch (e) {}
+try { map.removeLayer(layer_OpenStreetMap_1); } catch (e) {}
+try { map.removeLayer(layer_DarkMatterretina_2); } catch (e) {}
+try { map.removeLayer(layer_BatasAdminSurakarta_5); } catch (e) {}
+try { map.removeLayer(layer_MultiCriteriaEvaluationSurakarta_3); } catch (e) {}
+
+map.addLayer(layer_GoogleSatellite_0);
+map.addLayer(layer_AnalisisClockboardZoneSurakarta_4);
+
+/* ========================
+   --- ENHANCEMENTS: PUSH SIDEBAR ANIMATION & SYNC
+   ======================== */
+(function(){
+    var wrapper = document.getElementById('dashboard-wrapper');
+    var sidebar = document.getElementById('sidebar');
+    var toggleBtn = document.getElementById('sidebar-toggle');
+    var toggleIcon = toggleBtn.querySelector('.icon');
+
+    // restore previous state
+    var savedOpen = localStorage.getItem('sidebar-open');
+    if (savedOpen === 'true') wrapper.classList.add('sidebar-open');
+
+    // helper untuk memanggil invalidateSize setelah animasi
+    function refreshMapAfterTransition() {
+        if (window.map && typeof window.map.invalidateSize === 'function') {
+            setTimeout(function(){ map.invalidateSize(); }, 220);
+        }
+    }
+
+    // Toggle function
+    function setSidebar(open) {
+        if (open) wrapper.classList.add('sidebar-open'); else wrapper.classList.remove('sidebar-open');
+        localStorage.setItem('sidebar-open', !!open);
+        if (open) { toggleIcon.classList.remove('fa-bars'); toggleIcon.classList.add('fa-times'); }
+        else { toggleIcon.classList.remove('fa-times'); toggleIcon.classList.add('fa-bars'); }
+
+        var called = false;
+        function onTransitionEnd(e) {
+            if (e && e.target !== sidebar) return;
+            if (called) return;
+            called = true;
+            sidebar.removeEventListener('transitionend', onTransitionEnd);
+            refreshMapAfterTransition();
+        }
+        sidebar.addEventListener('transitionend', onTransitionEnd);
+        setTimeout(function(){ if (!called) refreshMapAfterTransition(); }, 400);
+    }
+
+    // bind toggle button
+    toggleBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        setSidebar(!wrapper.classList.contains('sidebar-open'));
+    });
+
+    // close on map click in mobile mode
+    map.on('click', function(){
+        if (window.innerWidth <= 900 && wrapper.classList.contains('sidebar-open')) {
+            setSidebar(false);
+        }
+    });
+
+    // keep checkboxes/radios in sync with map layers
+    function updateCheckboxes() {
+        try {
+            document.getElementById('overlay-batas-admin').checked = map.hasLayer(layer_BatasAdminSurakarta_5);
+            document.getElementById('overlay-clockboard').checked = map.hasLayer(layer_AnalisisClockboardZoneSurakarta_4);
+            document.getElementById('overlay-mce').checked = map.hasLayer(layer_MultiCriteriaEvaluationSurakarta_3);
+        } catch (e) {}
+    }
+    var cbBatas = document.getElementById('overlay-batas-admin');
+    var cbClock = document.getElementById('overlay-clockboard');
+    var cbMCE = document.getElementById('overlay-mce');
+    if (cbBatas) cbBatas.addEventListener('change', function(){ this.checked ? map.addLayer(layer_BatasAdminSurakarta_5) : map.removeLayer(layer_BatasAdminSurakarta_5); });
+    if (cbClock) cbClock.addEventListener('change', function(){ this.checked ? map.addLayer(layer_AnalisisClockboardZoneSurakarta_4) : map.removeLayer(layer_AnalisisClockboardZoneSurakarta_4); });
+    if (cbMCE) cbMCE.addEventListener('change', function(){ this.checked ? map.addLayer(layer_MultiCriteriaEvaluationSurakarta_3) : map.removeLayer(layer_MultiCriteriaEvaluationSurakarta_3); });
+
+    // Basemap radios
+    var rGoogle = document.getElementById('basemap-google');
+    var rOsm = document.getElementById('basemap-osm');
+    var rDark = document.getElementById('basemap-dark');
+    function setBasemap(which) {
+        map.removeLayer(layer_GoogleSatellite_0); map.removeLayer(layer_OpenStreetMap_1); map.removeLayer(layer_DarkMatterretina_2);
+        if (which === 'google') map.addLayer(layer_GoogleSatellite_0);
+        if (which === 'osm') map.addLayer(layer_OpenStreetMap_1);
+        if (which === 'dark') map.addLayer(layer_DarkMatterretina_2);
+    }
+    if (rGoogle) rGoogle.addEventListener('change', function(){ if (this.checked) setBasemap('google'); });
+    if (rOsm) rOsm.addEventListener('change', function(){ if (this.checked) setBasemap('osm'); });
+    if (rDark) rDark.addEventListener('change', function(){ if (this.checked) setBasemap('dark'); });
+
+    // keep inputs in sync if layers changed
+    map.on('layeradd layerremove', function(){
+        setTimeout(updateCheckboxes, 60);
+        setTimeout(function(){
+            if (map.hasLayer(layer_GoogleSatellite_0)) { if (rGoogle) rGoogle.checked = true; }
+            else if (map.hasLayer(layer_OpenStreetMap_1)) { if (rOsm) rOsm.checked = true; }
+            else if (map.hasLayer(layer_DarkMatterretina_2)) { if (rDark) rDark.checked = true; }
+        }, 80);
+    });
+
+    // initial sync and icon set
+    updateCheckboxes();
+    if (wrapper.classList.contains('sidebar-open')) { toggleIcon.classList.remove('fa-bars'); toggleIcon.classList.add('fa-times'); } 
+    else { toggleIcon.classList.remove('fa-times'); toggleIcon.classList.add('fa-bars'); }
+
+    // ensure map resized on window resize (useful when switching between overlay/push breakpoint)
+    window.addEventListener('resize', function(){
+        setTimeout(function(){ map.invalidateSize(); }, 200);
+    });
+
+    // initial refresh
+    setTimeout(function(){ map.invalidateSize(); }, 400);
+    
+})();
+
+// --- START NEW FEATURE: PRINT & DOWNLOAD ---
+// Additive module: Preview modal + "Download/Print" control and non-destructive export workflow.
+// NOTE: This script is standalone and does NOT modify or remove any lines from the original script.
+// It assumes a global Leaflet `map` variable exists (same assumption used by the original feature).
+(function(){
+    // small helper to dynamically load scripts (independent from the original IIFE)
+    function loadScriptOnce(src) {
+        return new Promise(function(resolve, reject){
+            if (document.querySelector('script[src="'+src+'"]')) return resolve();
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = resolve;
+            s.onerror = function(){ reject(new Error('Failed to load ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+
+    // ensure html2canvas and jspdf available when needed
+    async function ensureExportLibs() {
+        try {
+            if (!window.html2canvas) {
+                await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+            }
+            if (!window.jspdf) {
+                await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+            }
+            return true;
+        } catch (e) {
+            console.error(e);
+            alert('Gagal memuat library ekspor (html2canvas / jsPDF). Periksa koneksi internet Anda.');
+            return false;
+        }
+    }
+
+    // create "Download/Print" button next to existing print button without removing existing elements
+    function createDownloadControl() {
+        if (document.getElementById('print-download-control')) return;
+        var btn = document.createElement('button');
+        btn.id = 'print-download-control';
+        btn.title = 'Preview & Download map';
+        btn.setAttribute('aria-label','Preview and download map');
+        btn.style.position = 'absolute';
+        // try to place adjacent to existing print-button; fallback to top-left
+        var ref = document.getElementById('print-button') || document.getElementById('dashboard-wrapper') || document.body;
+        // compute position near existing print-button if possible
+        if (document.getElementById('print-button')) {
+            // keep it slightly to the right of existing print-button
+            btn.style.bottom = '20px'; // Jarak dari bawah
+btn.style.right = '20px';  // Jarak dari kanan
+btn.style.zIndex = '1000'; // Memastikan tombol berada di atas layer peta
+        } else {
+            btn.style.bottom = '20px'; // Jarak dari bawah
+btn.style.right = '20px';  // Jarak dari kanan
+btn.style.zIndex = '1000'; // Memastikan tombol berada di atas layer peta
+        }
+        btn.style.borderRadius = '10px';
+        btn.style.background = 'rgba(6,120,255,0.9)';
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+        btn.style.padding = '8px 10px';
+        btn.style.boxShadow = '0 6px 18px rgba(0,0,0,0.25)';
+        btn.style.cursor = 'pointer';
+        btn.innerHTML = '<span style="font-weight:600;font-size:13px;">Preview & Download</span>';
+        // try to append near wrapper if available to avoid overlaying other controls
+        var wrapper = document.getElementById('dashboard-wrapper') || document.body;
+        wrapper.appendChild(btn);
+
+        btn.addEventListener('click', async function(){
+            // ensure libs loaded
+            var ok = await ensureExportLibs();
+            if (!ok) return;
+            openPreviewModal();
+        });
+    }
+
+    // utility to clone legend (best-effort)
+    function cloneLegend() {
+        // attempt common selectors for legend controls
+        var selectors = [
+            '.leaflet-control .legend',
+            '.legend',
+            '.map-legend',
+            '.legend-control',
+            '.map-legend-wrapper'
+        ];
+        for (var i=0;i<selectors.length;i++){
+            var el = document.querySelector(selectors[i]);
+            if (el) {
+                var cl = el.cloneNode(true);
+                cl.style.position = 'absolute';
+                cl.style.right = '12px';
+                cl.style.top = '12px';
+                cl.style.zIndex = 9999;
+                cl.style.background = 'rgba(255,255,255,0.95)';
+                cl.style.padding = '8px';
+                cl.style.borderRadius = '6px';
+                cl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)';
+                return cl;
+            }
+        }
+        return null;
+    }
+
+    // compute scale bar similar to original (best-effort using global map)
+    function computeScaleInfo(map, pxWidth) {
+        try {
+            var size = map.getSize();
+            var p1 = L.point(0, size.y / 2);
+            var p2 = L.point(pxWidth, size.y / 2);
+            var latlng1 = map.containerPointToLatLng(p1);
+            var latlng2 = map.containerPointToLatLng(p2);
+            var meters = map.distance(latlng1, latlng2);
+            // choose nice round value
+            var scales = [1,2,5,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000,200000,500000];
+            var nice = scales[scales.length-1];
+            for (var i=0;i<scales.length;i++){
+                if (scales[i] >= meters) { nice = scales[i]; break; }
+            }
+            var ratio = nice / meters;
+            var pixelLen = Math.round(pxWidth * ratio);
+            var label = (nice >= 1000) ? (nice/1000) + ' km' : (Math.round(nice) + ' m');
+            return { pixelLen: pixelLen, label: label };
+        } catch (e) {
+            return { pixelLen: 100, label: '---' };
+        }
+    }
+
+    // Build printable clone element for preview (independent copy; does NOT alter original map)
+    function buildPreviewElement(titleText) {
+        var previewWrapper = document.createElement('div');
+        previewWrapper.style.width = '1100px';
+        previewWrapper.style.height = '850px';
+        previewWrapper.style.background = '#fff';
+        previewWrapper.style.position = 'relative';
+        previewWrapper.style.overflow = 'hidden';
+        previewWrapper.style.display = 'flex';
+        previewWrapper.style.flexDirection = 'column';
+        previewWrapper.style.boxSizing = 'border-box';
+        previewWrapper.style.border = '1px solid #ddd';
+        previewWrapper.style.borderRadius = '6px';
+
+        // header area for title + meta
+        var header = document.createElement('div');
+        header.style.padding = '12px 14px';
+        header.style.borderBottom = '1px solid #eee';
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.background = '#fafafa';
+        var title = document.createElement('div');
+        title.style.fontWeight = '700';
+        title.style.fontSize = '16px';
+        title.innerText = titleText || document.title || 'Map';
+        title.contentEditable = true;
+        title.id = 'preview-map-title';
+        var meta = document.createElement('div');
+        meta.style.fontSize = '12px';
+        meta.style.color = '#333';
+        var now = new Date();
+        meta.innerText = now.toLocaleString();
+        header.appendChild(title);
+        header.appendChild(meta);
+        previewWrapper.appendChild(header);
+
+        // main map area
+        var mapArea = document.createElement('div');
+        mapArea.style.position = 'relative';
+        mapArea.style.flex = '1';
+        mapArea.style.background = '#fff';
+        mapArea.style.display = 'block';
+        mapArea.style.overflow = 'hidden';
+        previewWrapper.appendChild(mapArea);
+
+        // Try to clone map DOM (best-effort)
+        if (window.map && typeof map.getContainer === 'function') {
+            try {
+                var orig = map.getContainer();
+                var clone = orig.cloneNode(true);
+                // remove interactive controls which should not be in printable area (best-effort)
+                Array.from(clone.querySelectorAll('.leaflet-control-zoom, .leaflet-control-locate, .leaflet-control-measure, .leaflet-control-scale')).forEach(function(n){ n.remove(); });
+                // clear pointer-events on cloned map to avoid interactions in preview
+                clone.style.pointerEvents = 'none';
+                clone.style.width = '100%';
+                clone.style.height = '100%';
+                mapArea.appendChild(clone);
+
+                // add scale bar
+                var sc = document.createElement('div');
+                sc.style.position = 'absolute';
+                sc.style.left = '12px';
+                sc.style.bottom = '12px';
+                sc.style.background = 'rgba(255,255,255,0.95)';
+                sc.style.padding = '6px 8px';
+                sc.style.borderRadius = '4px';
+                sc.style.fontSize = '12px';
+                sc.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
+                var info = computeScaleInfo(map, 100);
+                sc.innerHTML = '<div style="height:6px;background:#222;width:'+info.pixelLen+'px;border-radius:2px;margin-bottom:6px;"></div><div style="text-align:left;">'+info.label+'</div>';
+                mapArea.appendChild(sc);
+
+                // add north arrow
+                var north = document.createElement('div');
+                north.style.position = 'absolute';
+                north.style.right = '12px';
+                north.style.bottom = '12px';
+                north.style.width = '56px';
+                north.style.height = '56px';
+                north.style.display = 'flex';
+                north.style.alignItems = 'center';
+                north.style.justifyContent = 'center';
+                north.style.background = 'rgba(255,255,255,0.95)';
+                north.style.borderRadius = '6px';
+                north.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
+                north.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="34" height="34"><g fill="none" stroke="#111" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 L20 20 L12 16 L4 20 Z" fill="#eee"/></g></svg><div style="position:absolute;bottom:-14px;right:-2px;font-size:10px;color:#333;">N</div>';
+                mapArea.appendChild(north);
+
+                // permanent credit text inside map area
+                var mapCredit = document.createElement('div');
+                mapCredit.style.position = 'absolute';
+                mapCredit.style.left = '12px';
+                mapCredit.style.bottom = '4px';
+                mapCredit.style.fontSize = '10px';
+                mapCredit.style.color = '#333';
+                mapCredit.style.background = 'rgba(255,255,255,0.0)';
+                mapCredit.style.padding = '2px 4px';
+                mapCredit.style.pointerEvents = 'none';
+                mapCredit.innerText = '[Isi Nama Credit/Instansi Anda]';
+                mapArea.appendChild(mapCredit);
+
+                // clone legend if available
+                var legendClone = cloneLegend();
+                if (legendClone) {
+                    legendClone.id = 'preview-legend';
+                    // ensure high z-index so html2canvas captures it prominently
+                    legendClone.style.zIndex = 9998;
+                    mapArea.appendChild(legendClone);
                 }
-            } else {
-                popup._contentNode.classList.remove('media');
+
+            } catch (e) {
+                console.warn('Failed to clone map DOM for preview', e);
+                // fallback: show a placeholder
+                var placeholder = document.createElement('div');
+                placeholder.style.width = '100%';
+                placeholder.style.height = '100%';
+                placeholder.style.display = 'flex';
+                placeholder.style.alignItems = 'center';
+                placeholder.style.justifyContent = 'center';
+                placeholder.style.color = '#666';
+                placeholder.innerText = 'Preview tidak tersedia (kloning peta gagal).';
+                mapArea.appendChild(placeholder);
+            }
+        } else {
+            var noMap = document.createElement('div');
+            noMap.style.width = '100%';
+            noMap.style.height = '100%';
+            noMap.style.display = 'flex';
+            noMap.style.alignItems = 'center';
+            noMap.style.justifyContent = 'center';
+            noMap.style.color = '#666';
+            noMap.innerText = 'Map object tidak ditemukan pada halaman.';
+            mapArea.appendChild(noMap);
+        }
+
+        // footer area (permanent credit and actions are added in modal separately)
+        var footer = document.createElement('div');
+        footer.style.padding = '10px 14px';
+        footer.style.borderTop = '1px solid #eee';
+        footer.style.display = 'flex';
+        footer.style.justifyContent = 'space-between';
+        footer.style.alignItems = 'center';
+        footer.style.background = '#fafafa';
+        var credit = document.createElement('div');
+        credit.style.fontWeight = '600';
+        credit.innerText = '[Isi Nama Credit/Instansi Anda]';
+        footer.appendChild(credit);
+        previewWrapper.appendChild(footer);
+
+        return previewWrapper;
+    }
+
+    // show preview modal, render canvas using html2canvas and display preview image + actions
+    async function openPreviewModal() {
+        // create modal elements
+        if (document.getElementById('map-export-preview-modal')) return; // single instance
+        var modal = document.createElement('div');
+        modal.id = 'map-export-preview-modal';
+        modal.style.position = 'fixed';
+        modal.style.left = '0';
+        modal.style.top = '0';
+        modal.style.width = '100vw';
+        modal.style.height = '100vh';
+        modal.style.background = 'rgba(0,0,0,0.6)';
+        modal.style.zIndex = 3200;
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.padding = '20px';
+        // content container
+        var content = document.createElement('div');
+        content.style.width = 'min(1200px,98vw)';
+        content.style.height = 'min(920px,95vh)';
+        content.style.background = '#fff';
+        content.style.borderRadius = '8px';
+        content.style.overflow = 'hidden';
+        content.style.display = 'flex';
+        content.style.flexDirection = 'column';
+        content.style.boxShadow = '0 12px 40px rgba(0,0,0,0.5)';
+        modal.appendChild(content);
+
+        // top bar with title editable
+        var topBar = document.createElement('div');
+        topBar.style.padding = '10px 14px';
+        topBar.style.display = 'flex';
+        topBar.style.justifyContent = 'space-between';
+        topBar.style.alignItems = 'center';
+        var tLeft = document.createElement('div');
+        tLeft.style.fontSize = '15px';
+        tLeft.style.fontWeight = '700';
+        tLeft.innerText = 'Preview Export';
+        var tRight = document.createElement('div');
+        tRight.style.display = 'flex';
+        tRight.style.alignItems = 'center';
+        tRight.style.gap = '8px';
+        var btnClose = document.createElement('button');
+        btnClose.innerText = 'Close';
+        btnClose.style.border = 'none';
+        btnClose.style.background = 'transparent';
+        btnClose.style.cursor = 'pointer';
+        btnClose.style.fontSize = '13px';
+        btnClose.style.color = '#1b1b1b';
+        btnClose.addEventListener('click', function(){ modal.remove(); });
+        tRight.appendChild(btnClose);
+        topBar.appendChild(tLeft);
+        topBar.appendChild(tRight);
+        content.appendChild(topBar);
+
+        // main area where preview and options appear
+        var mainArea = document.createElement('div');
+        mainArea.style.flex = '1';
+        mainArea.style.display = 'flex';
+        mainArea.style.gap = '12px';
+        mainArea.style.padding = '12px';
+        mainArea.style.boxSizing = 'border-box';
+        content.appendChild(mainArea);
+
+        // left: preview container (with scroll)
+        var previewContainer = document.createElement('div');
+        previewContainer.style.flex = '1';
+        previewContainer.style.overflow = 'auto';
+        previewContainer.style.display = 'flex';
+        previewContainer.style.alignItems = 'center';
+        previewContainer.style.justifyContent = 'center';
+        previewContainer.style.background = '#f6f6f6';
+        previewContainer.style.padding = '12px';
+        mainArea.appendChild(previewContainer);
+
+        // right: actions and metadata
+        var actionPanel = document.createElement('div');
+        actionPanel.style.width = '320px';
+        actionPanel.style.display = 'flex';
+        actionPanel.style.flexDirection = 'column';
+        actionPanel.style.gap = '10px';
+        actionPanel.style.borderLeft = '1px solid #eee';
+        actionPanel.style.paddingLeft = '12px';
+        actionPanel.style.boxSizing = 'border-box';
+        mainArea.appendChild(actionPanel);
+
+        // metadata / editable title
+        var label = document.createElement('div');
+        label.style.fontSize = '13px';
+        label.style.fontWeight = '600';
+        label.innerText = 'Title (click to edit preview title):';
+        var titleInput = document.createElement('div');
+        titleInput.contentEditable = true;
+        titleInput.style.minHeight = '34px';
+        titleInput.style.padding = '8px';
+        titleInput.style.border = '1px solid #e6e6e6';
+        titleInput.style.borderRadius = '6px';
+        titleInput.style.background = '#fff';
+        titleInput.innerText = document.title || 'Map';
+        actionPanel.appendChild(label);
+        actionPanel.appendChild(titleInput);
+
+        // legend / attributes info area (read-only)
+        var attLabel = document.createElement('div');
+        attLabel.style.fontSize = '13px';
+        attLabel.style.fontWeight = '600';
+        attLabel.innerText = 'Atribut Peta / Legend (ditangkap otomatis jika tersedia):';
+        var attBox = document.createElement('div');
+        attBox.style.minHeight = '120px';
+        attBox.style.padding = '8px';
+        attBox.style.border = '1px solid #e6e6e6';
+        attBox.style.borderRadius = '6px';
+        attBox.style.background = '#fff';
+        attBox.style.overflow = 'auto';
+        actionPanel.appendChild(attLabel);
+        actionPanel.appendChild(attBox);
+
+        // action buttons
+        var btns = document.createElement('div');
+        btns.style.display = 'flex';
+        btns.style.flexDirection = 'column';
+        btns.style.gap = '8px';
+        btns.style.marginTop = '6px';
+        var btnDownloadPNG = document.createElement('button');
+        btnDownloadPNG.innerText = 'Download PNG';
+        btnDownloadPNG.style.padding = '10px';
+        btnDownloadPNG.style.border = 'none';
+        btnDownloadPNG.style.borderRadius = '6px';
+        btnDownloadPNG.style.background = '#0b84ff';
+        btnDownloadPNG.style.color = '#fff';
+        btnDownloadPNG.style.cursor = 'pointer';
+        var btnDownloadPDF = document.createElement('button');
+        btnDownloadPDF.innerText = 'Download PDF';
+        btnDownloadPDF.style.padding = '10px';
+        btnDownloadPDF.style.border = '1px solid #0b84ff';
+        btnDownloadPDF.style.borderRadius = '6px';
+        btnDownloadPDF.style.background = '#fff';
+        btnDownloadPDF.style.color = '#0b84ff';
+        btnDownloadPDF.style.cursor = 'pointer';
+        var btnRegenerate = document.createElement('button');
+        btnRegenerate.innerText = 'Regenerate Preview';
+        btnRegenerate.style.padding = '10px';
+        btnRegenerate.style.border = '1px solid #888';
+        btnRegenerate.style.borderRadius = '6px';
+        btnRegenerate.style.background = '#fff';
+        btnRegenerate.style.color = '#111';
+        btnRegenerate.style.cursor = 'pointer';
+        btns.appendChild(btnDownloadPNG);
+        btns.appendChild(btnDownloadPDF);
+        btns.appendChild(btnRegenerate);
+        actionPanel.appendChild(btns);
+
+        // small note about credit permanence
+        var note = document.createElement('div');
+        note.style.fontSize = '12px';
+        note.style.color = '#444';
+        note.style.marginTop = '6px';
+        note.innerText = 'Catatan: Credit/Watermark akan selalu ditambahkan di pojok bawah hasil download.';
+        actionPanel.appendChild(note);
+
+        document.body.appendChild(modal);
+
+        // Build initial preview element (heavy operation)
+        var previewElement = buildPreviewElement(titleInput.innerText);
+        previewContainer.appendChild(previewElement);
+
+        // fill legend / attributes box with cloned legend HTML (if exists)
+        var legendClone = document.getElementById('preview-legend') || cloneLegend();
+        if (legendClone) {
+            // convert to simple HTML for display on panel
+            attBox.appendChild(legendClone.cloneNode(true));
+        } else {
+            attBox.innerText = 'Legend tidak ditemukan otomatis pada halaman. Jika legend ada di DOM, pastikan class/selector terlihat oleh skrip.';
+        }
+
+        // helper to render current previewElement into an image using html2canvas
+        async function renderPreviewToCanvas() {
+            try {
+                // temporarily scale previewElement for better resolution capture
+                var opts = {
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    logging: false
+                };
+                // ensure elements (tiles) have a moment to render
+                await new Promise(r => setTimeout(r, 300));
+                var canvas = await html2canvas(previewElement, opts);
+                return canvas;
+            } catch (e) {
+                console.error('Render preview failed', e);
+                throw e;
             }
         }
-        var bounds_group = new L.featureGroup([]);
-        function setBounds() {
+
+        // Render initially
+        var currentCanvas = null;
+        async function generateAndShowPreview() {
+            try {
+                // update title inside preview element (editable header)
+                var previewTitleEl = previewElement.querySelector('#preview-map-title');
+                if (previewTitleEl) previewTitleEl.innerText = titleInput.innerText || document.title || 'Map';
+                // also update meta timestamp
+                var meta = previewElement.querySelector('.print-meta') || null;
+                if (meta) meta.innerText = new Date().toLocaleString();
+
+                // render
+                var canvas = await renderPreviewToCanvas();
+                currentCanvas = canvas;
+                // show image in preview container (replace previous)
+                // create an <img> element for nicer fit
+                var img = document.createElement('img');
+                img.src = canvas.toDataURL('image/png');
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.style.border = '1px solid #ddd';
+                img.style.borderRadius = '6px';
+                // remove existing image or canvas children
+                previewContainer.innerHTML = '';
+                var wrap = document.createElement('div');
+                wrap.style.display = 'flex';
+                wrap.style.alignItems = 'center';
+                wrap.style.justifyContent = 'center';
+                wrap.appendChild(img);
+                previewContainer.appendChild(wrap);
+            } catch (e) {
+                previewContainer.innerHTML = '';
+                var errDiv = document.createElement('div');
+                errDiv.style.color = '#b00';
+                errDiv.style.padding = '12px';
+                errDiv.innerText = 'Gagal membuat preview. Kemungkinan masalah CORS pada tile peta atau sumber tile tidak mengizinkan capture.';
+                previewContainer.appendChild(errDiv);
+            }
         }
-        map.createPane('pane_GoogleSatellite_0');
-        map.getPane('pane_GoogleSatellite_0').style.zIndex = 400;
-        var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            pane: 'pane_GoogleSatellite_0',
-            opacity: 1.0,
-            attribution: '',
-            minZoom: 1,
-            maxZoom: 28,
-            minNativeZoom: 0,
-            maxNativeZoom: 19
+
+        // do initial generate
+        await generateAndShowPreview();
+
+        // wire buttons
+        btnRegenerate.addEventListener('click', async function(){
+            // rebuild previewElement (fresh) to reflect any changed title / legend / map)
+            previewElement.remove();
+            previewElement = buildPreviewElement(titleInput.innerText);
+            previewContainer.innerHTML = '';
+            previewContainer.appendChild(previewElement);
+            // re-add legend/attributes if available
+            var lclone = document.getElementById('preview-legend') || cloneLegend();
+            if (lclone) {
+                attBox.innerHTML = '';
+                attBox.appendChild(lclone.cloneNode(true));
+            }
+            await generateAndShowPreview();
         });
-        layer_GoogleSatellite_0;
-        map.createPane('pane_OpenStreetMap_1');
-        map.getPane('pane_OpenStreetMap_1').style.zIndex = 401;
-        var layer_OpenStreetMap_1 = L.tileLayer('http://tile.osm.org/{z}/{x}/{y}.png', {
-            pane: 'pane_OpenStreetMap_1',
-            opacity: 1.0,
-            attribution: '',
-            minZoom: 1,
-            maxZoom: 28,
-            minNativeZoom: 0,
-            maxNativeZoom: 19
+
+        btnDownloadPNG.addEventListener('click', async function(){
+            try {
+                if (!currentCanvas) {
+                    currentCanvas = await renderPreviewToCanvas();
+                }
+                // ensure the permanent credit is present (draw into canvas as well so tile CORS issues aside, we still overlay text)
+                var ctx = currentCanvas.getContext('2d');
+                var credit = '[Isi Nama Credit/Instansi Anda]';
+                ctx.font = '14px sans-serif';
+                ctx.fillStyle = 'rgba(20,20,20,0.85)';
+                // draw a semi-opaque stripe behind the text for high contrast
+                var textWidth = ctx.measureText(credit).width;
+                var padding = 8;
+                var x = 12;
+                var y = currentCanvas.height - 12;
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.fillRect(x - padding/2, y - 16 - padding/2, textWidth + padding, 22 + padding);
+                ctx.fillStyle = 'rgba(20,20,20,0.95)';
+                ctx.fillText(credit, x, y);
+                // trigger download
+                var link = document.createElement('a');
+                link.href = currentCanvas.toDataURL('image/png');
+                var safeTitle = (titleInput.innerText || 'map').replace(/[<>:"\/\\|?*\x00-\x1F]/g,'').trim() || 'map';
+                link.download = safeTitle + '.png';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            } catch (e) {
+                console.error(e);
+                alert('Download PNG gagal. Periksa console untuk detail.');
+            }
         });
-        layer_OpenStreetMap_1;
-        map.createPane('pane_DarkMatterretina_2');
-        map.getPane('pane_DarkMatterretina_2').style.zIndex = 402;
-        var layer_DarkMatterretina_2 = L.tileLayer('https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png', {
-            pane: 'pane_DarkMatterretina_2',
-            opacity: 1.0,
-            attribution: '',
-            minZoom: 1,
-            maxZoom: 28,
-            minNativeZoom: 0,
-            maxNativeZoom: 20
+
+        btnDownloadPDF.addEventListener('click', async function(){
+            try {
+                // ensure jsPDF is present under window.jspdf (UMD)
+                if (!window.jspdf || !window.jspdf.jsPDF) {
+                    await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+                }
+                if (!currentCanvas) {
+                    currentCanvas = await renderPreviewToCanvas();
+                }
+                // create jsPDF instance sized to canvas
+                var { jsPDF } = window.jspdf;
+                var imgData = currentCanvas.toDataURL('image/png');
+                var orientation = currentCanvas.width > currentCanvas.height ? 'landscape' : 'portrait';
+                // using px unit to map canvas pixel dimension directly
+                var pdf = new jsPDF({
+                    orientation: orientation,
+                    unit: 'px',
+                    format: [currentCanvas.width, currentCanvas.height]
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, currentCanvas.width, currentCanvas.height, undefined, 'FAST');
+
+                // add permanent credit text also as text (in case)
+                var footerText = '[Isi Nama Credit/Instansi Anda]';
+                pdf.setFontSize(10);
+                pdf.setTextColor(40,40,40);
+                pdf.text(footerText, 12, currentCanvas.height - 8);
+
+                // add title on top-left if user set it
+                var finalTitle = titleInput.innerText || document.title || 'map';
+                pdf.setFontSize(14);
+                pdf.setTextColor(10,10,10);
+                pdf.text(finalTitle, 14, 20);
+
+                var safeTitle = finalTitle.replace(/[<>:"\/\\|?*\x00-\x1F]/g,'').trim() || 'map';
+                pdf.save(safeTitle + '.pdf');
+            } catch (e) {
+                console.error(e);
+                alert('Download PDF gagal. Periksa console untuk detail.');
+            }
         });
-        layer_DarkMatterretina_2;
-        function pop_MultiCriteriaEvaluationSurakarta_3(feature, layer) {
-            layer.on({
-                mouseout: function(e) {
-                    for (var i in e.target._eventParents) {
-                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
-                            e.target._eventParents[i].resetStyle(e.target);
-                        }
+
+        // close modal on Escape
+        function escHandler(e){
+            if (e.key === 'Escape') modal.remove();
+        }
+        window.addEventListener('keydown', escHandler);
+        modal.addEventListener('remove', function(){ window.removeEventListener('keydown', escHandler); });
+
+        // cleanup when modal removed (observer)
+        var observer = new MutationObserver(function(records){
+            records.forEach(function(rec){
+                rec.removedNodes.forEach(function(node){
+                    if (node === modal) {
+                        window.removeEventListener('keydown', escHandler);
+                        observer.disconnect();
                     }
-                    if (typeof layer.closePopup == 'function') {
-                        layer.closePopup();
-                    } else {
-                        layer.eachLayer(function(feature){
-                            feature.closePopup()
-                        });
-                    }
-                },
-                mouseover: highlightFeature,
+                });
             });
-            var popupContent = '<table>\
-                    <tr>\
-                        <td colspan="2"><strong>DN</strong><br />' + (feature.properties['DN'] !== null ? autolinker.link(String(feature.properties['DN']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                </table>';
-            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
-			layer.on('popupopen', function(e) {
-				addClassToPopupIfMedia(content, e.popup);
-			});
-			layer.bindPopup(content, { maxHeight: 400 });
-        }
+        });
+        observer.observe(document.body, { childList: true });
+    }
 
-        function style_MultiCriteriaEvaluationSurakarta_3_0(feature) {
-            switch(String(feature.properties['DN'])) {
-                case '1':
-                    return {
-                pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-                stroke: false, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(215,25,28,1.0)',
-                interactive: true,
-            }
-                    break;
-                case '2':
-                    return {
-                pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-                stroke: false, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(253,174,97,1.0)',
-                interactive: true,
-            }
-                    break;
-                case '3':
-                    return {
-                pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-                stroke: false, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(255,255,191,1.0)',
-                interactive: true,
-            }
-                    break;
-                case '4':
-                    return {
-                pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-                stroke: false, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(171,221,164,1.0)',
-                interactive: true,
-            }
-                    break;
-                case '5':
-                    return {
-                pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-                stroke: false, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(43,131,186,1.0)',
-                interactive: true,
-            }
-                    break;
-            }
-        }
-        map .createPane('pane_MultiCriteriaEvaluationSurakarta_3');
-        map.getPane('pane_MultiCriteriaEvaluationSurakarta_3').style.zIndex = 403;
-        map.getPane('pane_MultiCriteriaEvaluationSurakarta_3').style['mix-blend-mode'] = 'color-dodge';
-        var layer_MultiCriteriaEvaluationSurakarta_3 = new L.geoJson(json_MultiCriteriaEvaluationSurakarta_3, {
-            attribution: '',
-            interactive: true,
-            dataVar: 'json_MultiCriteriaEvaluationSurakarta_3',
-            layerName: 'layer_MultiCriteriaEvaluationSurakarta_3',
-            pane: 'pane_MultiCriteriaEvaluationSurakarta_3',
-            onEachFeature: pop_MultiCriteriaEvaluationSurakarta_3,
-            style: style_MultiCriteriaEvaluationSurakarta_3_0,
-        });
-        bounds_group.addLayer(layer_MultiCriteriaEvaluationSurakarta_3);
-        function pop_AnalisisClockboardZoneSurakarta_4(feature, layer) {
-            layer.on({
-                mouseout: function(e) {
-                    for (var i in e.target._eventParents) {
-                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
-                            e.target._eventParents[i].resetStyle(e.target);
-                        }
-                    }
-                    if (typeof layer.closePopup == 'function') {
-                        layer.closePopup();
-                    } else {
-                        layer.eachLayer(function(feature){
-                            feature.closePopup()
-                        });
-                    }
-                },
-                mouseover: highlightFeature,
-            });
-            var popupContent = '<table>\
-                    <tr>\
-                        <td class="visible-with-data" id="zone_id" colspan="2"><strong>zone_id</strong><br />' + (feature.properties['zone_id'] !== null ? autolinker.link(String(feature.properties['zone_id']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                    <tr>\
-                        <td colspan="2">' + (feature.properties['zone_sum'] !== null ? autolinker.link(String(feature.properties['zone_sum']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                    <tr>\
-                        <td colspan="2">' + (feature.properties['zone_mean'] !== null ? autolinker.link(String(feature.properties['zone_mean']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                    <tr>\
-                        <td class="visible-with-data" id="Source" colspan="2"><strong>Source</strong><br />' + (feature.properties['Source'] !== null ? autolinker.link(String(feature.properties['Source']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                </table>';
-            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
-			layer.on('popupopen', function(e) {
-				addClassToPopupIfMedia(content, e.popup);
-			});
-			layer.bindPopup(content, { maxHeight: 400 });
-        }
+    // Initialize control on DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', createDownloadControl);
+    } else {
+        createDownloadControl();
+    }
 
-        function style_AnalisisClockboardZoneSurakarta_4_0(feature) {
-            if (feature.properties['zone_mean'] >= 143.319368 && feature.properties['zone_mean'] <= 178.262560 ) {
-                return {
-                pane: 'pane_AnalisisClockboardZoneSurakarta_4',
-                opacity: 1,
-                color: 'rgba(0,0,0,1.0)',
-                dashArray: '',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(215,25,28,1.0)',
-                interactive: true,
-            }
-            }
-            if (feature.properties['zone_mean'] >= 178.262560 && feature.properties['zone_mean'] <= 199.836309 ) {
-                return {
-                pane: 'pane_AnalisisClockboardZoneSurakarta_4',
-                opacity: 1,
-                color: 'rgba(0,0,0,1.0)',
-                dashArray: '',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(253,174,97,1.0)',
-                interactive: true,
-            }
-            }
-            if (feature.properties['zone_mean'] >= 199.836309 && feature.properties['zone_mean'] <= 211.293532 ) {
-                return {
-                pane: 'pane_AnalisisClockboardZoneSurakarta_4',
-                opacity: 1,
-                color: 'rgba(0,0,0,1.0)',
-                dashArray: '',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(255,255,191,1.0)',
-                interactive: true,
-            }
-            }
-            if (feature.properties['zone_mean'] >= 211.293532 && feature.properties['zone_mean'] <= 226.771112 ) {
-                return {
-                pane: 'pane_AnalisisClockboardZoneSurakarta_4',
-                opacity: 1,
-                color: 'rgba(0,0,0,1.0)',
-                dashArray: '',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(171,221,164,1.0)',
-                interactive: true,
-            }
-            }
-            if (feature.properties['zone_mean'] >= 226.771112 && feature.properties['zone_mean'] <= 248.438013 ) {
-                return {
-                pane: 'pane_AnalisisClockboardZoneSurakarta_4',
-                opacity: 1,
-                color: 'rgba(0,0,0,1.0)',
-                dashArray: '',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(43,131,186,1.0)',
-                interactive: true,
-            }
-            }
-        }
-        map.createPane('pane_AnalisisClockboardZoneSurakarta_4');
-        map.getPane('pane_AnalisisClockboardZoneSurakarta_4').style.zIndex = 404;
-        map.getPane('pane_AnalisisClockboardZoneSurakarta_4').style['mix-blend-mode'] = 'overlay';
-        var layer_AnalisisClockboardZoneSurakarta_4 = new L.geoJson(json_AnalisisClockboardZoneSurakarta_4, {
-            attribution: '',
-            interactive: true,
-            dataVar: 'json_AnalisisClockboardZoneSurakarta_4',
-            layerName: 'layer_AnalisisClockboardZoneSurakarta_4',
-            pane: 'pane_AnalisisClockboardZoneSurakarta_4',
-            onEachFeature: pop_AnalisisClockboardZoneSurakarta_4,
-            style: style_AnalisisClockboardZoneSurakarta_4_0,
-        });
-        bounds_group.addLayer(layer_AnalisisClockboardZoneSurakarta_4);
-        map.addLayer(layer_AnalisisClockboardZoneSurakarta_4);
-        function pop_BatasAdminSurakarta_5(feature, layer) {
-            layer.on({
-                mouseout: function(e) {
-                    for (var i in e.target._eventParents) {
-                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
-                            e.target._eventParents[i].resetStyle(e.target);
-                        }
-                    }
-                    if (typeof layer.closePopup == 'function') {
-                        layer.closePopup();
-                    } else {
-                        layer.eachLayer(function(feature){
-                            feature.closePopup()
-                        });
-                    }
-                },
-                mouseover: highlightFeature,
-            });
-            var popupContent = '<table>\
-                </table>';
-            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
-			layer.on('popupopen', function(e) {
-				addClassToPopupIfMedia(content, e.popup);
-			});
-			layer.bindPopup(content, { maxHeight: 400 });
-        }
+    // expose a small API on window for advanced usage (non-invasive)
+    window._mapExportPreview = {
+        open: openPreviewModal,
+        createControl: createDownloadControl,
+        ensureLibs: ensureExportLibs
+    };
 
-        function style_BatasAdminSurakarta_5_0(feature) {
-            switch(String(feature.properties['WADMKC'])) {
-                case 'Banjarsari':
-                    return {
-                pane: 'pane_BatasAdminSurakarta_5',
-                opacity: 1,
-                color: 'rgba(255,255,255,1.0)',
-                dashArray: '5.0,1.0',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(68,1,84,1.0)',
-                interactive: false,
-            }
-                    break;
-                case 'Jebres':
-                    return {
-                pane: 'pane_BatasAdminSurakarta_5',
-                opacity: 1,
-                color: 'rgba(255,255,255,1.0)',
-                dashArray: '5.0,1.0',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(59,82,139,1.0)',
-                interactive: false,
-            }
-                    break;
-                case 'Laweyan':
-                    return {
-                pane: 'pane_BatasAdminSurakarta_5',
-                opacity: 1,
-                color: 'rgba(255,255,255,1.0)',
-                dashArray: '5.0,1.0',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(33,144,141,1.0)',
-                interactive: false,
-            }
-                    break;
-                case 'Pasar Kliwon':
-                    return {
-                pane: 'pane_BatasAdminSurakarta_5',
-                opacity: 1,
-                color: 'rgba(255,255,255,1.0)',
-                dashArray: '5.0,1.0',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(93,201,99,1.0)',
-                interactive: false,
-            }
-                    break;
-                case 'Serengan':
-                    return {
-                pane: 'pane_BatasAdminSurakarta_5',
-                opacity: 1,
-                color: 'rgba(255,255,255,1.0)',
-                dashArray: '5.0,1.0',
-                lineCap: 'butt',
-                lineJoin: 'miter',
-                weight: 1.0, 
-                fill: true,
-                fillOpacity: 1,
-                fillColor: 'rgba(253,231,37,1.0)',
-                interactive: false,
-            }
-                    break;
-            }
-        }
-        map.createPane('pane_BatasAdminSurakarta_5');
-        map.getPane('pane_BatasAdminSurakarta_5').style.zIndex = 405;
-        map.getPane('pane_BatasAdminSurakarta_5').style['mix-blend-mode'] = 'hard-light';
-        var layer_BatasAdminSurakarta_5 = new L.geoJson(json_BatasAdminSurakarta_5, {
-            attribution: '',
-            interactive: false,
-            dataVar: 'json_BatasAdminSurakarta_5',
-            layerName: 'layer_BatasAdminSurakarta_5',
-            pane: 'pane_BatasAdminSurakarta_5',
-            onEachFeature: pop_BatasAdminSurakarta_5,
-            style: style_BatasAdminSurakarta_5_0,
-        });
-        bounds_group.addLayer(layer_BatasAdminSurakarta_5);
-        const url = {"Nominatim OSM": "https://nominatim.openstreetmap.org/search?format=geojson&addressdetails=1&",
-        "France BAN": "https://api-adresse.data.gouv.fr/search/?"}
-        var photonControl = L.control.photon({
-            url: url["Nominatim OSM"],
-            feedbackLabel: '',
-            position: 'topleft',
-            includePosition: true,
-            initial: true,
-            // resultsHandler: myHandler,
-        }).addTo(map);
-        photonControl._container.childNodes[0].style.borderRadius="10px"
-        // Create a variable to store the geoJSON data
-        var x = null;
-        // Create a variable to store the marker
-        var marker = null;
-        // Add an event listener to the Photon control to create a marker from the returned geoJSON data
-        var z = null;
-        photonControl.on('selected', function(e) {
-            console.log(photonControl.search.resultsContainer);
-            if (x != null) {
-                map.removeLayer(obj3.marker);
-                map.removeLayer(x);
-            }
-            obj2.gcd = e.choice;
-            x = L.geoJSON(obj2.gcd).addTo(map);
-            var label = typeof obj2.gcd.properties.label === 'undefined' ? obj2.gcd.properties.display_name : obj2.gcd.properties.label;
-            obj3.marker = L.marker(x.getLayers()[0].getLatLng()).bindPopup(label).addTo(map);
-            map.setView(x.getLayers()[0].getLatLng(), 17);
-            z = typeof e.choice.properties.label === 'undefined'? e.choice.properties.display_name : e.choice.properties.label;
-            console.log(e);
-            e.target.input.value = z;
-        });
-        var search = document.getElementsByClassName("leaflet-photon leaflet-control")[0];
-        search.classList.add("leaflet-control-search")
-        search.style.display = "flex";
-        search.style.backgroundColor="rgba(255,255,255,0.5)" 
+})(); 
+// --- END NEW FEATURE ---
 
-        // Create the new button element
-        var button = document.createElement("div");
-        button.id = "gcd-button-control";
-        button.className = "gcd-gl-btn fa fa-search search-button";
-
-        // Insert the button at the beginning of the search control
-        search.insertBefore(button, search.firstChild);
-        last = search.lastChild;
-        last.style.display = "none";
-        button.addEventListener("click", function (e) {
-            if (last.style.display === "none") {
-                last.style.display = "block";
-            } else {
-                last.style.display = "none";
-            }
-        });
-        var overlaysTree = [
-            {label: 'Batas Admin Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Banjarsari0.png" /></td><td>Banjarsari</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Jebres1.png" /></td><td>Jebres</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Laweyan2.png" /></td><td>Laweyan</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_PasarKliwon3.png" /></td><td>Pasar Kliwon</td></tr><tr><td style="text-align: center;"><img src="legend/BatasAdminSurakarta_5_Serengan4.png" /></td><td>Serengan</td></tr></table>', layer: layer_BatasAdminSurakarta_5},
-            {label: 'Analisis Clockboard Zone Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring10.png" /></td><td>Ring 1</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring21.png" /></td><td>Ring 2</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring32.png" /></td><td>Ring 3</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring43.png" /></td><td>Ring 4</td></tr><tr><td style="text-align: center;"><img src="legend/AnalisisClockboardZoneSurakarta_4_Ring54.png" /></td><td>Ring 5</td></tr></table>', layer: layer_AnalisisClockboardZoneSurakarta_4},
-        {label: '<b>Multi-Criteria Evaluation Surakarta</b>', collapsed: true, selectAllCheckbox: true, children: [
-            {label: 'Multi-Criteria Evaluation Surakarta<br /><table><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatTinggi0.png" /></td><td>Sangat Tinggi</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Tinggi1.png" /></td><td>Tinggi </td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Sedang2.png" /></td><td>Sedang</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_Rendah3.png" /></td><td>Rendah</td></tr><tr><td style="text-align: center;"><img src="legend/MultiCriteriaEvaluationSurakarta_3_SangatRendah4.png" /></td><td>Sangat Rendah</td></tr></table>', layer: layer_MultiCriteriaEvaluationSurakarta_3},
-            {label: "Dark Matter (retina)", layer: layer_DarkMatterretina_2},]},
-            {label: "OpenStreetMap", layer: layer_OpenStreetMap_1},
-            {label: "Google Satelite", layer: layer_GoogleSatellite_0, radioGroup: 'bm' },]
-        var lay = L.control.layers.tree(null, overlaysTree,{
-            //namedToggle: true,
-            //selectorBack: false,
-            //closedSymbol: '&#8862; &#x1f5c0;',
-            //openedSymbol: '&#8863; &#x1f5c1;',
-            //collapseAll: 'Collapse all',
-            //expandAll: 'Expand all',
-            collapsed: true,
-        });
-        lay.addTo(map);
-        setBounds();
-        var i = 0;
-        layer_BatasAdminSurakarta_5.eachLayer(function(layer) {
-            var context = {
-                feature: layer.feature,
-                variables: {}
-            };
-            layer.bindTooltip((layer.feature.properties['WADMKC'] !== null?String('<div style="color: #323232; font-size: 6pt; font-family: \'Open Sans\', sans-serif;">' + layer.feature.properties['WADMKC']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_BatasAdminSurakarta_5'});
-            labels.push(layer);
-            totalMarkers += 1;
-              layer.added = true;
-              addLabel(layer, i);
-              i++;
-        });
-        resetLabels([layer_AnalisisClockboardZoneSurakarta_4,layer_BatasAdminSurakarta_5]);
-        map.on("zoomend", function(){
-            resetLabels([layer_AnalisisClockboardZoneSurakarta_4,layer_BatasAdminSurakarta_5]);
-        });
-        map.on("layeradd", function(){
-            resetLabels([layer_AnalisisClockboardZoneSurakarta_4,layer_BatasAdminSurakarta_5]);
-        });
-        map.on("layerremove", function(){
-            resetLabels([layer_AnalisisClockboardZoneSurakarta_4,layer_BatasAdminSurakarta_5]);
-        });
-        // INJECT KE SIDEBAR
-        var legendHtml = "";
-        overlaysTree.forEach(function(item) {
-            legendHtml += "<div class='layer-legend-group'>" + item.label + "</div>";
-        });
-        document.getElementById('sidebar-legend-content').innerHTML = legendHtml;
-        // Leaflet Controls
-        L.control.zoom({ position: 'topright' }).addTo(map);
-        L.control.locate({ position: 'topright' }).addTo(map);
-        new L.Control.Measure({ position: 'topright', primaryLengthUnit: 'meters' }).addTo(map);
-
-        // Custom Layer Toggle Functionality for Sidebar
-        // Basemap toggles
-        document.getElementById('basemap-google').addEventListener('change', function() {
-            if (this.checked) {
-                map.addLayer(layer_GoogleSatellite_0);
-                map.removeLayer(layer_OpenStreetMap_1);
-                map.removeLayer(layer_DarkMatterretina_2);
-            }
-        });
-        document.getElementById('basemap-osm').addEventListener('change', function() {
-            if (this.checked) {
-                map.addLayer(layer_OpenStreetMap_1);
-                map.removeLayer(layer_GoogleSatellite_0);
-                map.removeLayer(layer_DarkMatterretina_2);
-            }
-        });
-        document.getElementById('basemap-dark').addEventListener('change', function() {
-            if (this.checked) {
-                map.addLayer(layer_DarkMatterretina_2);
-                map.removeLayer(layer_GoogleSatellite_0);
-                map.removeLayer(layer_OpenStreetMap_1);
-            }
-        });
-
-        // Overlay toggles
-        document.getElementById('overlay-batas-admin').addEventListener('change', function() {
-            if (this.checked) {
-                map.addLayer(layer_BatasAdminSurakarta_5);
-            } else {
-                map.removeLayer(layer_BatasAdminSurakarta_5);
-            }
-        });
-        document.getElementById('overlay-clockboard').addEventListener('change', function() {
-            if (this.checked) {
-                map.addLayer(layer_AnalisisClockboardZoneSurakarta_4);
-            } else {
-                map.removeLayer(layer_AnalisisClockboardZoneSurakarta_4);
-            }
-        });
-        document.getElementById('overlay-mce').addEventListener('change', function() {
-            if (this.checked) {
-                map.addLayer(layer_MultiCriteriaEvaluationSurakarta_3);
-            } else {
-                map.removeLayer(layer_MultiCriteriaEvaluationSurakarta_3);
-            }
-        });
-
-        // Initialize default layers
-        map.addLayer(layer_GoogleSatellite_0); // Default basemap
-        map.addLayer(layer_BatasAdminSurakarta_5); // Default overlay
-        map.addLayer(layer_AnalisisClockboardZoneSurakarta_4); // Default overlay
-    </script>
-    </body>
+</script>
+</body>
 </html>
